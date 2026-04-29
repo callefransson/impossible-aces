@@ -1,5 +1,7 @@
 # Impossible Aces
 
+##PLAY IT HERE: https://callefransson.github.io/impossible-aces/
+
 Impossible Aces is a browser-based card game built with React, TypeScript, and Vite. The goal is simple to understand but tricky to pull off: clear the board until only the four Aces remain in the top row.
 
 This project is designed as a lightweight front-end game that can be run locally during development and deployed as a static site through GitHub Pages, Vercel, or Netlify.
