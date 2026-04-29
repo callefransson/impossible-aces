@@ -1,0 +1,33 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+:root {
+  color-scheme: only light;
+  --bg-deep: #0f2f25;
+  --bg-felt: #1d5a43;
+  --bg-felt-bright: #2b7a5b;
+  --surface-glass: rgba(245, 251, 247, 0.12);
+  --surface-line: rgba(255, 255, 255, 0.16);
+  --text-main: #eff8f2;
+  --text-soft: rgba(239, 248, 242, 0.82);
+  --gold: #e7c873;
+  --danger: #cb6a57;
+  --shadow-soft: 0 22px 60px rgba(4, 18, 13, 0.34);
+}
+
+body {
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top, rgba(255, 245, 214, 0.08), transparent 28%),
+    linear-gradient(180deg, #12362b, #091a14 78%);
+}
+header {
+  padding: 2rem;
+}

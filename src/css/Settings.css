@@ -1,0 +1,9 @@
+.settings-section {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.settings-btn {
+  cursor: pointer !important;
+}

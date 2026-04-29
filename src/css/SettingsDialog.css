@@ -1,0 +1,8 @@
+.removableCard {
+  background: linear-gradient(
+    180deg,
+    rgba(13, 128, 51, 0.788),
+    rgba(4, 36, 15, 0.842)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
