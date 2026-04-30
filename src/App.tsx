@@ -11,7 +11,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const DEFAULT_SETTINGS: GameSettings = {
   removableCard: true,
   disableDealButton: true,
-  enableSound: true,
   cardStyle: "classic",
 };
 const GAME_SETTINGS_KEY = "gameSettings";
@@ -22,7 +21,10 @@ type HandState = Array<Array<Card | null>>;
 
 function trimEmptyBottomRows(rows: HandState): HandState {
   const trimmed = rows.map((row) => row.slice()) as HandState;
-  while (trimmed.length > 1 && trimmed[trimmed.length - 1].every((card) => card === null)) {
+  while (
+    trimmed.length > 1 &&
+    trimmed[trimmed.length - 1].every((card) => card === null)
+  ) {
     trimmed.pop();
   }
   return trimmed;
@@ -75,7 +77,9 @@ function getVisibleInfo(rows: HandState) {
   return { visibleFlags, visibleMax };
 }
 
-function getRemovablePositions(rows: HandState): Array<{ row: number; col: number }> {
+function getRemovablePositions(
+  rows: HandState,
+): Array<{ row: number; col: number }> {
   const { visibleFlags, visibleMax } = getVisibleInfo(rows);
   const positions: Array<{ row: number; col: number }> = [];
 
@@ -93,7 +97,9 @@ function getRemovablePositions(rows: HandState): Array<{ row: number; col: numbe
   return positions;
 }
 
-function getMovablePositions(rows: HandState): Array<{ row: number; col: number }> {
+function getMovablePositions(
+  rows: HandState,
+): Array<{ row: number; col: number }> {
   if (!(rows[0]?.some((card) => card === null) ?? false)) return [];
 
   const positions: Array<{ row: number; col: number }> = [];
@@ -220,7 +226,9 @@ export default function App() {
   });
   const [stats, setStats] = useState<GameStats>(() => {
     const raw = localStorage.getItem(GAME_STATS_KEY);
-    return raw ? { ...DEFAULT_GAME_STATS, ...JSON.parse(raw) } : DEFAULT_GAME_STATS;
+    return raw
+      ? { ...DEFAULT_GAME_STATS, ...JSON.parse(raw) }
+      : DEFAULT_GAME_STATS;
   });
   const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null);
   const touchDragRef = useRef<{
@@ -229,6 +237,7 @@ export default function App() {
     moved: boolean;
   } | null>(null);
   const suppressClickRef = useRef(false);
+  const suppressClickTimeoutRef = useRef<number | null>(null);
   const pendingTouchTapRef = useRef(false);
   const roundResultRecordedRef = useRef(false);
   const teaseShownRef = useRef(false);
@@ -244,7 +253,8 @@ export default function App() {
     const card = hand[row]?.[col];
     if (!card) return false;
 
-    const hasEmptyTopSlot = hand[0]?.some((topCard) => topCard === null) ?? false;
+    const hasEmptyTopSlot =
+      hand[0]?.some((topCard) => topCard === null) ?? false;
     if (!hasEmptyTopSlot) return false;
 
     // Check if there's any card below this one in the same column
@@ -383,6 +393,19 @@ export default function App() {
     pendingTouchTapRef.current = false;
   };
 
+  const suppressNextClickBriefly = () => {
+    suppressClickRef.current = true;
+
+    if (suppressClickTimeoutRef.current !== null) {
+      window.clearTimeout(suppressClickTimeoutRef.current);
+    }
+
+    suppressClickTimeoutRef.current = window.setTimeout(() => {
+      suppressClickRef.current = false;
+      suppressClickTimeoutRef.current = null;
+    }, 350);
+  };
+
   const showPlaceableCols = () => {
     setPlaceableCols(getPlaceableCols());
   };
@@ -446,7 +469,7 @@ export default function App() {
     if (!touch) return;
 
     touchDrag.moved = true;
-    suppressClickRef.current = true;
+    suppressNextClickBriefly();
     pendingTouchTapRef.current = false;
     setTouchPreview({
       row: touchDrag.row,
@@ -467,6 +490,9 @@ export default function App() {
       setTouchPreview(null);
       return;
     }
+
+    e.preventDefault();
+    suppressNextClickBriefly();
 
     const touch = e.changedTouches[0];
     const target = document
@@ -502,14 +528,14 @@ export default function App() {
 
     if (suppressClickRef.current) {
       suppressClickRef.current = false;
+      if (suppressClickTimeoutRef.current !== null) {
+        window.clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = null;
+      }
       return;
     }
 
-    if (
-      selectedCard &&
-      selectedCard.row === row &&
-      selectedCard.col === col
-    ) {
+    if (selectedCard && selectedCard.row === row && selectedCard.col === col) {
       clearMoveState();
       return;
     }
@@ -532,7 +558,48 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!endState || roundStartedAt === null || roundResultRecordedRef.current) {
+    if (!touchPreview) return;
+
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyTouchAction = body.style.touchAction;
+    const previousBodyOverscrollBehavior = body.style.overscrollBehavior;
+    const previousHtmlOverflow = documentElement.style.overflow;
+    const previousHtmlTouchAction = documentElement.style.touchAction;
+    const previousHtmlOverscrollBehavior =
+      documentElement.style.overscrollBehavior;
+
+    body.style.overflow = "hidden";
+    body.style.touchAction = "none";
+    body.style.overscrollBehavior = "none";
+    documentElement.style.overflow = "hidden";
+    documentElement.style.touchAction = "none";
+    documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      body.style.touchAction = previousBodyTouchAction;
+      body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+      documentElement.style.overflow = previousHtmlOverflow;
+      documentElement.style.touchAction = previousHtmlTouchAction;
+      documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
+    };
+  }, [touchPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (suppressClickTimeoutRef.current !== null) {
+        window.clearTimeout(suppressClickTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      !endState ||
+      roundStartedAt === null ||
+      roundResultRecordedRef.current
+    ) {
       return;
     }
 
@@ -550,7 +617,10 @@ export default function App() {
       if (endState.kind === "win") {
         next.wins += 1;
         next.currentWinStreak += 1;
-        next.bestWinStreak = Math.max(next.bestWinStreak, next.currentWinStreak);
+        next.bestWinStreak = Math.max(
+          next.bestWinStreak,
+          next.currentWinStreak,
+        );
         next.fastestWinSeconds =
           current.fastestWinSeconds === null
             ? completedInSeconds
@@ -579,13 +649,17 @@ export default function App() {
 
     teaseShownRef.current = true;
     setShowTeaseToast(true);
+  }, [cardsOnBoard, endState, hasStartedGame]);
+
+  useEffect(() => {
+    if (!showTeaseToast) return;
 
     const timeoutId = window.setTimeout(() => {
       setShowTeaseToast(false);
     }, 3800);
 
     return () => window.clearTimeout(timeoutId);
-  }, [cardsOnBoard, endState, hasStartedGame]);
+  }, [showTeaseToast]);
 
   return (
     <>
@@ -601,7 +675,11 @@ export default function App() {
           </div>
 
           <header className="app-header">
-            <h1 className="app-title">IMPOSSIBLE ACES</h1>
+            <img
+              src="/impossible-aces-title.png"
+              alt="Impossible Aces"
+              className="app-title"
+            />
 
             <div className="app-toolbar">
               <div className="toolbar-left">
@@ -610,7 +688,7 @@ export default function App() {
                     className="custom-btn custom-btn-primary-light-mode"
                     onClick={startFirstDeal}
                   >
-                    Deal 4 (top)
+                    Start round
                   </button>
                 )}
 
@@ -672,7 +750,9 @@ export default function App() {
                             }`}
                             data-drop-row={row}
                             data-drop-col={col}
-                            onDragOver={isPlaceableSlot ? handleDragOver : undefined}
+                            onDragOver={
+                              isPlaceableSlot ? handleDragOver : undefined
+                            }
                             onDragLeave={
                               isPlaceableSlot ? handleDragLeave : undefined
                             }
@@ -714,7 +794,8 @@ export default function App() {
                               selectedCard?.col === col
                             }
                             isTouchDragging={
-                              touchPreview?.row === row && touchPreview?.col === col
+                              touchPreview?.row === row &&
+                              touchPreview?.col === col
                             }
                             onClick={() => handleCardClick(row, col)}
                             onDragStart={(e) => handleDragStart(row, col)}

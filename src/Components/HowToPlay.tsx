@@ -1,6 +1,6 @@
 import React from "react";
 import { Dialog, Card, Button, Heading, Text, Flex } from "@radix-ui/themes";
-import helpGif from "../assets/HowToPlayImpossibleAcesGame.gif";
+import helpGif from "../assets/HowToPlayImpossibleAcesGameNewDesign.gif";
 import "../css/App.css";
 
 export default function HowToPlay({

@@ -11,12 +11,10 @@ import {
 } from "@radix-ui/themes";
 
 import "../css/SettingsDialog.css";
-import VolumeSlider from "./VolumeSlider";
 export type CardStyle = "classic" | "largeSymbols";
 export type GameSettings = {
   removableCard: boolean;
   disableDealButton: boolean;
-  enableSound: boolean;
   cardStyle: CardStyle;
 };
 export default function Settings({
@@ -110,32 +108,6 @@ export default function Settings({
                   </Flex>
                 </CheckboxCards.Item>
               </CheckboxCards.Root>
-              <CheckboxCards.Root
-                color="green"
-                size="2"
-                value={draft.enableSound ? ["on"] : []}
-                onValueChange={(vals) =>
-                  setSetting("enableSound", vals.includes("on"))
-                }
-              >
-                <CheckboxCards.Item
-                  value="on"
-                  className="removableCard"
-                  style={{ cursor: "pointer" }}
-                >
-                  <Flex direction="column" gap="1" style={{ width: "100%" }}>
-                    <Flex align="center" justify="between" gap="2">
-                      <Text size="2" className="removableCardTitle">
-                        <b>Enable sound</b>
-                      </Text>
-                    </Flex>
-
-                    <Text size="1">
-                      When checked, sound effects will be enabled.
-                    </Text>
-                  </Flex>
-                </CheckboxCards.Item>
-              </CheckboxCards.Root>
               <RadioCards.Root
                 color="green"
                 columns="2"
@@ -165,7 +137,6 @@ export default function Settings({
                   </Flex>
                 </RadioCards.Item>
               </RadioCards.Root>
-              {draft.enableSound && <VolumeSlider />}
               <Dialog.Close>
                 <div>
                   <Button onClick={save} className="btn-light-mode ">

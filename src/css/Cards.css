@@ -58,7 +58,8 @@
   gap: var(--card-gap);
   align-items: flex-start;
   justify-content: center;
-  min-width: fit-content;
+  width: calc((var(--card-width) * 4) + (var(--card-gap) * 3));
+  margin-inline: auto;
 }
 
 .cardColumn {
@@ -291,6 +292,7 @@
 
 .card.draggable {
   cursor: grab;
+  touch-action: none;
 }
 
 .card.draggable:hover {
@@ -559,6 +561,16 @@
   .card--largeSymbols .card__corner {
     width: 18px;
     gap: 2px;
+  }
+
+  .card--largeSymbols .card__corner--tl {
+    top: 3px;
+    left: 3px;
+  }
+
+  .card--largeSymbols .card__corner--br {
+    right: 3px;
+    bottom: 3px;
   }
 
   .card--largeSymbols .card__cornerRank,
