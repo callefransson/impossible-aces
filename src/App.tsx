@@ -560,43 +560,16 @@ export default function App() {
   useEffect(() => {
     if (!touchPreview) return;
 
-    const { body, documentElement } = document;
-    const scrollY = window.scrollY;
-    const previousBodyPosition = body.style.position;
-    const previousBodyTop = body.style.top;
-    const previousBodyLeft = body.style.left;
-    const previousBodyRight = body.style.right;
-    const previousBodyWidth = body.style.width;
-    const previousBodyOverflow = body.style.overflow;
-    const previousBodyTouchAction = body.style.touchAction;
-    const previousBodyOverscrollBehavior = body.style.overscrollBehavior;
-    const previousHtmlTouchAction = documentElement.style.touchAction;
-    const previousHtmlOverscrollBehavior =
-      documentElement.style.overscrollBehavior;
+    const preventPageDrag = (event: TouchEvent) => {
+      event.preventDefault();
+    };
 
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.overflow = "hidden";
-    body.style.touchAction = "none";
-    body.style.overscrollBehavior = "none";
-    documentElement.style.touchAction = "none";
-    documentElement.style.overscrollBehavior = "none";
+    document.addEventListener("touchmove", preventPageDrag, {
+      passive: false,
+    });
 
     return () => {
-      body.style.position = previousBodyPosition;
-      body.style.top = previousBodyTop;
-      body.style.left = previousBodyLeft;
-      body.style.right = previousBodyRight;
-      body.style.width = previousBodyWidth;
-      body.style.overflow = previousBodyOverflow;
-      body.style.touchAction = previousBodyTouchAction;
-      body.style.overscrollBehavior = previousBodyOverscrollBehavior;
-      documentElement.style.touchAction = previousHtmlTouchAction;
-      documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
-      window.scrollTo(0, scrollY);
+      document.removeEventListener("touchmove", preventPageDrag);
     };
   }, [touchPreview]);
 
