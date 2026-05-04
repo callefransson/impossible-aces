@@ -37,13 +37,23 @@ function shuffle<T>(arr: T[]): T[] {
 
 export default function useDeck(initialHandRows: Array<Array<Card | null>> = [[null, null, null, null]]) {
   const [hand, setHand] = useState<Array<Array<Card | null>>>(initialHandRows);
+  const [reserveCard, setReserveCard] = useState<Card | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
-  const allDealtIds = () => hand.flat().filter(Boolean).map((c) => (c as Card).id);
+  const dealtIdSet = () => {
+    const ids = new Set(
+      hand.flat().filter(Boolean).map((c) => (c as Card).id),
+    );
+    if (reserveCard) ids.add(reserveCard.id);
+    return ids;
+  };
+
+  const unavailableIdSet = () => new Set([...dealtIdSet(), ...removedIds]);
 
   // deal a single row (replaces first row)
   const deal = (count = 4) => {
-    const remaining = shuffle(makeDeck()).filter((c) => !allDealtIds().includes(c.id) && !removedIds.has(c.id));
+    const unavailableIds = unavailableIdSet();
+    const remaining = shuffle(makeDeck()).filter((c) => !unavailableIds.has(c.id));
     const selected: Array<Card | null> = [null, null, null, null];
     for (let i = 0; i < count && i < remaining.length; i++) {
       selected[i] = remaining[i];
@@ -56,8 +66,9 @@ export default function useDeck(initialHandRows: Array<Array<Card | null>> = [[n
 
   // fill empty slots first; if still need, append new row(s) and fill them
   const dealRemainingFromDeck = (count = 4) => {
+  const unavailableIds = unavailableIdSet();
   const remainingDeck = shuffle(makeDeck()).filter(
-    (c) => !hand.flat().some((h) => h?.id === c.id) && !removedIds.has(c.id)
+    (c) => !unavailableIds.has(c.id)
   );
   const newHand = hand.map((r) => r.slice()); // deep copy rows
   let deckIdx = 0;
@@ -92,6 +103,7 @@ export default function useDeck(initialHandRows: Array<Array<Card | null>> = [[n
 
   const reset = () => {
     setHand([[null, null, null, null]]);
+    setReserveCard(null);
     setRemovedIds(new Set());
   };
 
@@ -117,6 +129,38 @@ export default function useDeck(initialHandRows: Array<Array<Card | null>> = [[n
     newHand[toRow][toCol] = sourceCard;
     newHand[fromRow][fromCol] = null;
     setHand(newHand);
+
+    return { moved: true };
+  };
+
+  const moveCardToReserve = (fromRow: number, fromCol: number) => {
+    if (reserveCard) return { moved: false };
+    if (fromRow === 0) return { moved: false };
+
+    const sourceCard = hand[fromRow]?.[fromCol];
+    if (!sourceCard) return { moved: false };
+
+    for (let row = fromRow + 1; row < hand.length; row++) {
+      if (hand[row][fromCol] !== null) return { moved: false };
+    }
+
+    const newHand = hand.map((r) => r.slice());
+    newHand[fromRow][fromCol] = null;
+    setHand(newHand);
+    setReserveCard(sourceCard);
+
+    return { moved: true };
+  };
+
+  const moveReserveToTopSlot = (toCol: number) => {
+    if (!reserveCard) return { moved: false };
+    if (toCol < 0 || toCol >= 4) return { moved: false };
+    if (hand[0]?.[toCol]) return { moved: false };
+
+    const newHand = hand.map((r) => r.slice());
+    newHand[0][toCol] = reserveCard;
+    setHand(newHand);
+    setReserveCard(null);
 
     return { moved: true };
   };
@@ -240,6 +284,7 @@ const pruneLowerSameSuit = () => {
 };
 const restart = () => {
   setRemovedIds(new Set());
+  setReserveCard(null);
   setHand(() => {
     const remaining = shuffle(makeDeck());
     const selected: Array<Card | null> = [null, null, null, null];
@@ -250,6 +295,7 @@ const restart = () => {
 
   return {
     hand, // array of rows (Array<Array<Card|null>>)
+    reserveCard,
     deal,
     dealFour,
     dealRemainingFromDeck,
@@ -260,9 +306,11 @@ const restart = () => {
     removableFlags,
     removeAt,
     moveCard,
+    moveCardToReserve,
+    moveReserveToTopSlot,
     computeMaxPerSuit,
     removedIds,
     hasStartedGame: hand.some((row) => row.some((c) => c !== null)),
-    totalCardsLeft: 52 - allDealtIds().length - removedIds.size,
+    totalCardsLeft: 52 - unavailableIdSet().size,
   };
 }

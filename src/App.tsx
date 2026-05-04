@@ -1,11 +1,28 @@
 import Cards from "./Components/Cards";
+import GameModeDialog, {
+  GAME_MODE_LABELS,
+  type GameMode,
+} from "./Components/GameModeDialog";
 import GameEndModal from "./Components/GameModal";
 import type { GameEndState } from "./Components/GameModal";
 import GameToolbar from "./Components/GameToolbar";
 import type { GameSettings } from "./Components/Settings";
-import { DEFAULT_GAME_STATS, type GameStats } from "./Components/Stats";
+import {
+  DEFAULT_GAME_STATS,
+  DEFAULT_STATS_BY_MODE,
+  type GameStats,
+  type GameStatsByMode,
+} from "./Components/Stats";
 import "./css/App.css";
 import useDeck, { type Card } from "./hooks/useDeck";
+import {
+  Button,
+  Card as RadixCard,
+  Dialog,
+  Flex,
+  Heading,
+  Text,
+} from "@radix-ui/themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -15,9 +32,29 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 const GAME_SETTINGS_KEY = "gameSettings";
 const GAME_STATS_KEY = "gameStats";
+const GAME_MODE_KEY = "gameMode";
 const SMALL_SCREEN_CARD_STYLE_BREAKPOINT = 640;
 
 type HandState = Array<Array<Card | null>>;
+type PendingAceReserveMove = {
+  fromRow: number;
+  fromCol: number;
+  toRow: number;
+  toCol: number;
+} | null;
+type TouchPreview =
+  | {
+      source: "board";
+      row: number;
+      col: number;
+      x: number;
+      y: number;
+    }
+  | {
+      source: "reserve";
+      x: number;
+      y: number;
+    };
 
 function trimEmptyBottomRows(rows: HandState): HandState {
   const trimmed = rows.map((row) => row.slice()) as HandState;
@@ -49,6 +86,45 @@ function isWinningHand(rows: HandState): boolean {
     remainingCards.length === 4 &&
     rows[0]?.every((card) => card?.rank === "A") === true
   );
+}
+
+function normalizeStats(stats: Partial<GameStats> | null | undefined): GameStats {
+  return { ...DEFAULT_GAME_STATS, ...(stats ?? {}) };
+}
+
+function loadStatsByMode(): GameStatsByMode {
+  const raw = localStorage.getItem(GAME_STATS_KEY);
+  if (!raw) {
+    return {
+      impossible: normalizeStats(null),
+      strategicReserve: normalizeStats(null),
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      ("impossible" in parsed || "strategicReserve" in parsed)
+    ) {
+      return {
+        impossible: normalizeStats(parsed.impossible),
+        strategicReserve: normalizeStats(parsed.strategicReserve),
+      };
+    }
+
+    return {
+      impossible: normalizeStats(parsed),
+      strategicReserve: normalizeStats(null),
+    };
+  } catch {
+    return {
+      impossible: normalizeStats(null),
+      strategicReserve: normalizeStats(null),
+    };
+  }
 }
 
 function getVisibleInfo(rows: HandState) {
@@ -187,9 +263,12 @@ export default function App() {
     dealFourNew,
     reset,
     restart,
+    reserveCard,
     removableFlags,
     removeAt,
     moveCard,
+    moveCardToReserve,
+    moveReserveToTopSlot,
     totalCardsLeft,
     hasStartedGame,
   } = useDeck();
@@ -198,19 +277,23 @@ export default function App() {
     row: number;
     col: number;
   } | null>(null);
+  const [draggedReserve, setDraggedReserve] = useState(false);
   const [placeableCols, setPlaceableCols] = useState<Set<number>>(new Set());
   const [selectedCard, setSelectedCard] = useState<{
     row: number;
     col: number;
   } | null>(null);
+  const [selectedReserve, setSelectedReserve] = useState(false);
+  const [modeDialogOpen, setModeDialogOpen] = useState(false);
+  const [pendingAceReserveMove, setPendingAceReserveMove] =
+    useState<PendingAceReserveMove>(null);
+  const [gameMode, setGameMode] = useState<GameMode>(() => {
+    const raw = localStorage.getItem(GAME_MODE_KEY);
+    return raw === "strategicReserve" ? "strategicReserve" : "impossible";
+  });
   const [showTeaseToast, setShowTeaseToast] = useState(false);
   const [showImpossibleReason, setShowImpossibleReason] = useState(false);
-  const [touchPreview, setTouchPreview] = useState<{
-    row: number;
-    col: number;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [touchPreview, setTouchPreview] = useState<TouchPreview | null>(null);
   const [settings, setSettings] = useState<GameSettings>(() => {
     const raw = localStorage.getItem(GAME_SETTINGS_KEY);
     if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
@@ -224,17 +307,25 @@ export default function App() {
 
     return DEFAULT_SETTINGS;
   });
-  const [stats, setStats] = useState<GameStats>(() => {
-    const raw = localStorage.getItem(GAME_STATS_KEY);
-    return raw
-      ? { ...DEFAULT_GAME_STATS, ...JSON.parse(raw) }
-      : DEFAULT_GAME_STATS;
-  });
+  const [statsByMode, setStatsByMode] = useState<GameStatsByMode>(() =>
+    loadStatsByMode(),
+  );
   const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null);
   const touchDragRef = useRef<{
     row: number;
     col: number;
     moved: boolean;
+    startX: number;
+    startY: number;
+    centerX: number;
+    centerY: number;
+  } | null>(null);
+  const reserveTouchDragRef = useRef<{
+    moved: boolean;
+    startX: number;
+    startY: number;
+    centerX: number;
+    centerY: number;
   } | null>(null);
   const suppressClickRef = useRef(false);
   const suppressClickTimeoutRef = useRef<number | null>(null);
@@ -245,6 +336,10 @@ export default function App() {
   const flatHand = hand.flat();
   const flatRemovable = removableFlags.flat();
   const cardsOnBoard = flatHand.filter(Boolean).length;
+  const hasReserveMode = gameMode === "strategicReserve";
+  const hasCompletedAceRow =
+    hand[0]?.every((card) => card?.rank === "A") === true;
+  const currentStats = statsByMode[gameMode] ?? DEFAULT_GAME_STATS;
 
   // Check if a card is the bottommost card in its column
   const canDragCard = (row: number, col: number): boolean => {
@@ -266,6 +361,37 @@ export default function App() {
     return true;
   };
 
+  const canReserveCard = (row: number, col: number): boolean => {
+    if (!hasReserveMode || reserveCard || row === 0) return false;
+    if (hasCompletedAceRow) return false;
+
+    const card = hand[row]?.[col];
+    if (!card) return false;
+
+    for (let r = row + 1; r < hand.length; r++) {
+      if (hand[r][col] !== null) {
+        return false;
+      }
+    }
+
+    if (totalCardsLeft === 0) {
+      const nextHand = trimEmptyBottomRows(
+        hand.map((currentRow, rowIndex) =>
+          currentRow.map((currentCard, colIndex) =>
+            rowIndex === row && colIndex === col ? null : currentCard,
+          ),
+        ),
+      );
+
+      return (
+        getRemovablePositions(nextHand).length > 0 ||
+        getMovablePositions(nextHand).length > 0
+      );
+    }
+
+    return true;
+  };
+
   const getPlaceableCols = (): Set<number> => {
     const placeables = new Set<number>();
     for (let col = 0; col < 4; col++) {
@@ -274,27 +400,55 @@ export default function App() {
     return placeables;
   };
 
+  const wouldCompleteAceRow = (
+    fromRow: number,
+    fromCol: number,
+    toRow: number,
+    toCol: number,
+  ): boolean => {
+    const sourceCard = hand[fromRow]?.[fromCol];
+    if (!sourceCard || sourceCard.rank !== "A") return false;
+    if (toRow !== 0 || hand[toRow]?.[toCol]) return false;
+
+    const nextHand = hand.map((row) => row.slice()) as HandState;
+    nextHand[toRow][toCol] = sourceCard;
+    nextHand[fromRow][fromCol] = null;
+
+    return nextHand[0]?.every((card) => card?.rank === "A") === true;
+  };
+
   const isWin = useMemo(
-    () => totalCardsLeft === 0 && isWinningHand(hand),
-    [hand, totalCardsLeft],
+    () => totalCardsLeft === 0 && reserveCard === null && isWinningHand(hand),
+    [hand, reserveCard, totalCardsLeft],
   );
 
-  // Function to check if any moves are possible (removals or drags)
-  const hasMoves = useMemo(() => {
-    // Check for any removable cards
+  const hasBoardMoves = useMemo(() => {
     if (flatRemovable.some((flag) => flag)) return true;
-
-    // Check for possible card moves: any draggable card while at least one first-row slot is empty
-    const hasEmptyTopSlot = hand[0]?.some((card) => card === null) ?? false;
-    if (!hasEmptyTopSlot) return false;
 
     for (let row = 0; row < hand.length; row++) {
       for (let col = 0; col < 4; col++) {
         if (canDragCard(row, col)) return true;
       }
     }
+
     return false;
-  }, [hand, flatRemovable]);
+  }, [hand, flatRemovable, reserveCard]);
+
+  // Function to check if any moves are possible (removals, board moves, or reserve moves)
+  const hasMoves = useMemo(() => {
+    if (hasBoardMoves) return true;
+
+    const hasEmptyTopSlot = hand[0]?.some((card) => card === null) ?? false;
+    if (reserveCard && hasEmptyTopSlot) return true;
+
+    for (let row = 0; row < hand.length; row++) {
+      for (let col = 0; col < 4; col++) {
+        if (canReserveCard(row, col)) return true;
+      }
+    }
+
+    return false;
+  }, [hand, hasBoardMoves, reserveCard, hasReserveMode, totalCardsLeft]);
 
   const isLose = useMemo(
     () => totalCardsLeft === 0 && !hasMoves && !isWin,
@@ -303,8 +457,9 @@ export default function App() {
 
   const canStillWin = useMemo(() => {
     if (totalCardsLeft !== 0 || isWin) return true;
+    if (reserveCard !== null) return false;
     return canStillReachWin(hand);
-  }, [hand, isWin, totalCardsLeft]);
+  }, [hand, isWin, reserveCard, totalCardsLeft]);
 
   const canInspectImpossible = useMemo(
     () => isLose && !canStillWin,
@@ -340,9 +495,22 @@ export default function App() {
     localStorage.setItem(GAME_SETTINGS_KEY, JSON.stringify(next));
   };
 
+  const handleGameModeChange = (next: GameMode) => {
+    setGameMode(next);
+    localStorage.setItem(GAME_MODE_KEY, next);
+    resetBoard();
+  };
+
   const handleResetStats = () => {
-    setStats(DEFAULT_GAME_STATS);
-    localStorage.setItem(GAME_STATS_KEY, JSON.stringify(DEFAULT_GAME_STATS));
+    setStatsByMode((current) => {
+      const next = {
+        ...DEFAULT_STATS_BY_MODE,
+        ...current,
+        [gameMode]: normalizeStats(null),
+      };
+      localStorage.setItem(GAME_STATS_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const resetBoard = () => {
@@ -353,6 +521,23 @@ export default function App() {
     roundResultRecordedRef.current = false;
     teaseShownRef.current = false;
     reset();
+  };
+
+  const handleResetBoard = () => {
+    setStatsByMode((current) => {
+      const next = {
+        ...DEFAULT_STATS_BY_MODE,
+        ...current,
+        [gameMode]: {
+          ...normalizeStats(current[gameMode]),
+          resets: normalizeStats(current[gameMode]).resets + 1,
+        },
+      };
+      localStorage.setItem(GAME_STATS_KEY, JSON.stringify(next));
+      return next;
+    });
+
+    resetBoard();
   };
 
   const restartBoard = () => {
@@ -376,20 +561,24 @@ export default function App() {
   };
 
   const handleDragStart = (row: number, col: number) => {
-    // Can drag if it's the bottommost card in its column
-    if (canDragCard(row, col)) {
+    if (canDragCard(row, col) || canReserveCard(row, col)) {
       setDraggedCard({ row, col });
+      setDraggedReserve(false);
       setSelectedCard(null);
+      setSelectedReserve(false);
       setPlaceableCols(getPlaceableCols());
     }
   };
 
   const clearMoveState = () => {
     setDraggedCard(null);
+    setDraggedReserve(false);
     setSelectedCard(null);
+    setSelectedReserve(false);
     setPlaceableCols(new Set());
     setTouchPreview(null);
     touchDragRef.current = null;
+    reserveTouchDragRef.current = null;
     pendingTouchTapRef.current = false;
   };
 
@@ -410,6 +599,43 @@ export default function App() {
     setPlaceableCols(getPlaceableCols());
   };
 
+  const performBoardMove = (
+    fromRow: number,
+    fromCol: number,
+    toRow: number,
+    toCol: number,
+  ) => {
+    const moved = moveCard(fromRow, fromCol, toRow, toCol);
+    if (moved.moved) clearMoveState();
+    return moved;
+  };
+
+  const requestBoardMove = (
+    fromRow: number,
+    fromCol: number,
+    toRow: number,
+    toCol: number,
+  ) => {
+    if (
+      reserveCard &&
+      wouldCompleteAceRow(fromRow, fromCol, toRow, toCol)
+    ) {
+      setPendingAceReserveMove({ fromRow, fromCol, toRow, toCol });
+      clearMoveState();
+      return { moved: false, pendingWarning: true };
+    }
+
+    return { ...performBoardMove(fromRow, fromCol, toRow, toCol), pendingWarning: false };
+  };
+
+  const continuePendingAceMove = () => {
+    if (!pendingAceReserveMove) return;
+
+    const { fromRow, fromCol, toRow, toCol } = pendingAceReserveMove;
+    setPendingAceReserveMove(null);
+    performBoardMove(fromRow, fromCol, toRow, toCol);
+  };
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.style.opacity = "0.7";
@@ -427,11 +653,16 @@ export default function App() {
     e.preventDefault();
     e.currentTarget.style.opacity = "1";
 
+    if (draggedReserve) {
+      const moved = moveReserveToTopSlot(col);
+      if (moved.moved) clearMoveState();
+      return;
+    }
+
     if (!draggedCard) return;
     if (flatHand[row * 4 + col]) return; // Target must be empty
 
-    moveCard(draggedCard.row, draggedCard.col, row, col);
-    clearMoveState();
+    requestBoardMove(draggedCard.row, draggedCard.col, row, col);
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
@@ -443,22 +674,35 @@ export default function App() {
     col: number,
     e: React.TouchEvent<HTMLDivElement>,
   ) => {
-    if (!canDragCard(row, col)) return;
-    touchDragRef.current = { row, col, moved: false };
+    if (!canDragCard(row, col) && !canReserveCard(row, col)) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    touchDragRef.current = {
+      row,
+      col,
+      moved: false,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      centerX,
+      centerY,
+    };
     suppressClickRef.current = false;
     pendingTouchTapRef.current = true;
     setDraggedCard({ row, col });
     showPlaceableCols();
 
-    const touch = e.touches[0];
-    if (touch) {
-      setTouchPreview({
-        row,
-        col,
-        x: touch.clientX,
-        y: touch.clientY,
-      });
-    }
+    setTouchPreview({
+      source: "board",
+      row,
+      col,
+      x: centerX,
+      y: centerY,
+    });
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -472,10 +716,11 @@ export default function App() {
     suppressNextClickBriefly();
     pendingTouchTapRef.current = false;
     setTouchPreview({
+      source: "board",
       row: touchDrag.row,
       col: touchDrag.col,
-      x: touch.clientX,
-      y: touch.clientY,
+      x: touchDrag.centerX + touch.clientX - touchDrag.startX,
+      y: touchDrag.centerY + touch.clientY - touchDrag.startY,
     });
     e.preventDefault();
   };
@@ -497,17 +742,21 @@ export default function App() {
     const touch = e.changedTouches[0];
     const target = document
       .elementFromPoint(touch.clientX, touch.clientY)
-      ?.closest("[data-drop-row][data-drop-col]");
+      ?.closest("[data-drop-row][data-drop-col], [data-reserve-slot]");
 
     if (target instanceof HTMLElement) {
-      const row = Number(target.dataset.dropRow);
-      const col = Number(target.dataset.dropCol);
-      if (!Number.isNaN(row) && !Number.isNaN(col)) {
-        moveCard(touchDrag.row, touchDrag.col, row, col);
+      if (target.dataset.reserveSlot === "true") {
+        moveCardToReserve(touchDrag.row, touchDrag.col);
+      } else {
+        const row = Number(target.dataset.dropRow);
+        const col = Number(target.dataset.dropCol);
+        if (!Number.isNaN(row) && !Number.isNaN(col)) {
+          requestBoardMove(touchDrag.row, touchDrag.col, row, col);
+        }
       }
     }
 
-    clearMoveState();
+    if (!pendingAceReserveMove) clearMoveState();
   };
 
   const handleTouchCancel = () => {
@@ -515,11 +764,16 @@ export default function App() {
   };
 
   const handleSlotClick = (row: number, col: number) => {
+    if (selectedReserve) {
+      const moved = moveReserveToTopSlot(col);
+      if (moved.moved) clearMoveState();
+      return;
+    }
+
     if (!selectedCard) return;
     if (flatHand[row * 4 + col]) return;
 
-    const moved = moveCard(selectedCard.row, selectedCard.col, row, col);
-    if (moved.moved) clearMoveState();
+    requestBoardMove(selectedCard.row, selectedCard.col, row, col);
   };
 
   const handleCardClick = (row: number, col: number) => {
@@ -553,8 +807,156 @@ export default function App() {
     }
 
     const { allowed } = removeAt(row, col);
-    if (!allowed) return;
+    if (!allowed) {
+      if (canReserveCard(row, col)) {
+        setSelectedCard({ row, col });
+        setDraggedCard({ row, col });
+        setSelectedReserve(false);
+        return;
+      }
+
+      return;
+    }
     clearMoveState();
+  };
+
+  const handleReserveDragStart = () => {
+    if (!reserveCard || !(hand[0]?.some((card) => card === null) ?? false)) {
+      return;
+    }
+
+    setDraggedReserve(true);
+    setDraggedCard(null);
+    setSelectedCard(null);
+    setSelectedReserve(true);
+    setPlaceableCols(getPlaceableCols());
+  };
+
+  const handleReserveTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!reserveCard || !(hand[0]?.some((card) => card === null) ?? false)) {
+      return;
+    }
+
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    reserveTouchDragRef.current = {
+      moved: false,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      centerX,
+      centerY,
+    };
+    suppressClickRef.current = false;
+    pendingTouchTapRef.current = true;
+    setDraggedReserve(true);
+    setDraggedCard(null);
+    setSelectedCard(null);
+    setSelectedReserve(true);
+    setPlaceableCols(getPlaceableCols());
+
+    setTouchPreview({
+      source: "reserve",
+      x: centerX,
+      y: centerY,
+    });
+  };
+
+  const handleReserveTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touchDrag = reserveTouchDragRef.current;
+    if (!touchDrag) return;
+
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    touchDrag.moved = true;
+    suppressNextClickBriefly();
+    pendingTouchTapRef.current = false;
+    setTouchPreview({
+      source: "reserve",
+      x: touchDrag.centerX + touch.clientX - touchDrag.startX,
+      y: touchDrag.centerY + touch.clientY - touchDrag.startY,
+    });
+    e.preventDefault();
+  };
+
+  const handleReserveTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touchDrag = reserveTouchDragRef.current;
+    if (!touchDrag) return;
+
+    if (!touchDrag.moved) {
+      reserveTouchDragRef.current = null;
+      setDraggedReserve(false);
+      setTouchPreview(null);
+      return;
+    }
+
+    e.preventDefault();
+    suppressNextClickBriefly();
+
+    const touch = e.changedTouches[0];
+    const target = document
+      .elementFromPoint(touch.clientX, touch.clientY)
+      ?.closest("[data-drop-row][data-drop-col]");
+
+    if (target instanceof HTMLElement) {
+      const row = Number(target.dataset.dropRow);
+      const col = Number(target.dataset.dropCol);
+      if (row === 0 && !Number.isNaN(col)) {
+        moveReserveToTopSlot(col);
+      }
+    }
+
+    clearMoveState();
+  };
+
+  const handleReserveTouchCancel = () => {
+    clearMoveState();
+  };
+
+  const handleReserveClick = () => {
+    if (!reserveCard) return;
+
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      if (suppressClickTimeoutRef.current !== null) {
+        window.clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (selectedReserve) {
+      clearMoveState();
+      return;
+    }
+
+    setSelectedReserve(true);
+    setSelectedCard(null);
+    setDraggedCard(null);
+    setPlaceableCols(getPlaceableCols());
+  };
+
+  const handleReserveDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.style.opacity = "1";
+
+    if (!draggedCard) return;
+    const moved = moveCardToReserve(draggedCard.row, draggedCard.col);
+    if (moved.moved) clearMoveState();
+  };
+
+  const handleReserveSlotClick = () => {
+    if (!selectedCard || !canReserveCard(selectedCard.row, selectedCard.col)) {
+      return;
+    }
+
+    const moved = moveCardToReserve(selectedCard.row, selectedCard.col);
+    if (moved.moved) clearMoveState();
   };
 
   useEffect(() => {
@@ -595,10 +997,11 @@ export default function App() {
       Math.round((Date.now() - roundStartedAt) / 1000),
     );
 
-    setStats((current) => {
+    setStatsByMode((current) => {
+      const currentModeStats = normalizeStats(current[gameMode]);
       const next: GameStats = {
-        ...current,
-        gamesPlayed: current.gamesPlayed + 1,
+        ...currentModeStats,
+        gamesPlayed: currentModeStats.gamesPlayed + 1,
       };
 
       if (endState.kind === "win") {
@@ -609,20 +1012,26 @@ export default function App() {
           next.currentWinStreak,
         );
         next.fastestWinSeconds =
-          current.fastestWinSeconds === null
+          currentModeStats.fastestWinSeconds === null
             ? completedInSeconds
-            : Math.min(current.fastestWinSeconds, completedInSeconds);
+            : Math.min(currentModeStats.fastestWinSeconds, completedInSeconds);
       } else {
         next.losses += 1;
         next.currentWinStreak = 0;
       }
 
-      localStorage.setItem(GAME_STATS_KEY, JSON.stringify(next));
-      return next;
+      const nextByMode = {
+        ...DEFAULT_STATS_BY_MODE,
+        ...current,
+        [gameMode]: next,
+      };
+
+      localStorage.setItem(GAME_STATS_KEY, JSON.stringify(nextByMode));
+      return nextByMode;
     });
 
     roundResultRecordedRef.current = true;
-  }, [canInspectImpossible, endState, roundStartedAt]);
+  }, [canInspectImpossible, endState, gameMode, roundStartedAt]);
 
   useEffect(() => {
     if (
@@ -656,7 +1065,8 @@ export default function App() {
             <GameToolbar
               settings={settings}
               onSettingsChange={handleSettingsChange}
-              stats={stats}
+              stats={currentStats}
+              gameMode={gameMode}
               onResetStats={handleResetStats}
             />
           </div>
@@ -686,7 +1096,7 @@ export default function App() {
                     disabled={
                       totalCardsLeft === 0 ||
                       !!endState ||
-                      (settings.disableDealButton && hasMoves)
+                      (settings.disableDealButton && hasBoardMoves)
                     }
                   >
                     Deal 4 New
@@ -695,13 +1105,26 @@ export default function App() {
 
                 <button
                   className="custom-btn custom-btn-reset"
-                  onClick={resetBoard}
+                  onClick={handleResetBoard}
                 >
                   Reset
                 </button>
               </div>
 
               <div className="toolbar-right">
+                <button
+                  type="button"
+                  className="mode-pill"
+                  onClick={() => setModeDialogOpen(true)}
+                >
+                  <span className="status-label">
+                    <strong>Mode</strong>
+                  </span>
+                  <span className="mode-pill-value">
+                    {GAME_MODE_LABELS[gameMode]}
+                  </span>
+                </button>
+
                 <div className="status-pill" aria-label="Cards remaining">
                   <span className="status-label">
                     <strong>Cards left</strong>
@@ -714,9 +1137,70 @@ export default function App() {
 
           <main className="table-area">
             <div
-              className="cardTableFrame"
+              className={`cardTableFrame ${
+                hasReserveMode ? "cardTableFrame--with-reserve" : ""
+              }`}
               style={{ ["--rows" as any]: hand.length }}
             >
+              {hasReserveMode ? (
+                <div className="reserve-area">
+                  <div className="reserve-label">Reserve</div>
+                  {reserveCard ? (
+                    <Cards
+                      suite={reserveCard.suite}
+                      rank={reserveCard.rank}
+                      cardStyle={settings.cardStyle}
+                      isSelected={selectedReserve}
+                      isTouchDragging={touchPreview?.source === "reserve"}
+                      isDraggable={
+                        hand[0]?.some((card) => card === null) ?? false
+                      }
+                      onClick={handleReserveClick}
+                      onDragStart={handleReserveDragStart}
+                      onDragEnd={handleDragEnd}
+                      onTouchStart={handleReserveTouchStart}
+                      onTouchMove={handleReserveTouchMove}
+                      onTouchEnd={handleReserveTouchEnd}
+                      onTouchCancel={handleReserveTouchCancel}
+                    />
+                  ) : (
+                    <div
+                      className={`reserve-slot ${
+                        draggedCard &&
+                        canReserveCard(draggedCard.row, draggedCard.col)
+                          ? "reserve-slot--placeable"
+                          : ""
+                      } ${hasCompletedAceRow ? "reserve-slot--disabled" : ""}`}
+                      data-reserve-slot="true"
+                      onDragOver={
+                        draggedCard &&
+                        canReserveCard(draggedCard.row, draggedCard.col)
+                          ? handleDragOver
+                          : undefined
+                      }
+                      onDragLeave={
+                        draggedCard &&
+                        canReserveCard(draggedCard.row, draggedCard.col)
+                          ? handleDragLeave
+                          : undefined
+                      }
+                      onDrop={
+                        draggedCard &&
+                        canReserveCard(draggedCard.row, draggedCard.col)
+                          ? handleReserveDrop
+                          : undefined
+                      }
+                      onClick={
+                        selectedCard &&
+                        canReserveCard(selectedCard.row, selectedCard.col)
+                          ? handleReserveSlotClick
+                          : undefined
+                      }
+                    />
+                  )}
+                </div>
+              ) : null}
+
               <div className="cardGrid">
                 {[0, 1, 2, 3].map((col) => (
                   <div key={`col-${col}`} className="cardColumn">
@@ -757,7 +1241,8 @@ export default function App() {
                         );
                       }
 
-                      const isDraggable = canDragCard(row, col);
+                      const isDraggable =
+                        canDragCard(row, col) || canReserveCard(row, col);
 
                       return (
                         <div
@@ -781,7 +1266,8 @@ export default function App() {
                               selectedCard?.col === col
                             }
                             isTouchDragging={
-                              touchPreview?.row === row &&
+                              touchPreview?.source === "board" &&
+                              touchPreview.row === row &&
                               touchPreview?.col === col
                             }
                             onClick={() => handleCardClick(row, col)}
@@ -810,6 +1296,51 @@ export default function App() {
             canInspectImpossible={canInspectImpossible}
             onInspectImpossible={() => setShowImpossibleReason(true)}
           />
+          <GameModeDialog
+            open={modeDialogOpen}
+            onOpenChange={setModeDialogOpen}
+            mode={gameMode}
+            onModeChange={handleGameModeChange}
+          />
+          <Dialog.Root
+            open={pendingAceReserveMove !== null}
+            onOpenChange={(open) => {
+              if (!open) setPendingAceReserveMove(null);
+            }}
+          >
+            <Dialog.Content maxWidth="420px">
+              <RadixCard className="reserve-warning-card">
+                <Flex direction="column" gap="3">
+                  <div className="reserve-warning-icon">A</div>
+                  <Heading size="4" className="reserve-warning-title">
+                    Reserve card will be trapped
+                  </Heading>
+                  <Text size="2" className="reserve-warning-text">
+                    Moving this Ace will complete the top row while a card is
+                    still in reserve. That reserve card cannot return after the
+                    Ace row is full, so this round will no longer be winnable.
+                  </Text>
+
+                  <Flex gap="3" justify="end" wrap="wrap">
+                    <Button
+                      variant="soft"
+                      color="gray"
+                      className="reserve-warning-secondary"
+                      onClick={() => setPendingAceReserveMove(null)}
+                    >
+                      Cancel Ace move
+                    </Button>
+                    <Button
+                      className="btn-light-mode reserve-warning-primary"
+                      onClick={continuePendingAceMove}
+                    >
+                      Move Ace anyway
+                    </Button>
+                  </Flex>
+                </Flex>
+              </RadixCard>
+            </Dialog.Content>
+          </Dialog.Root>
         </div>
 
         {showTeaseToast ? (
@@ -828,7 +1359,10 @@ export default function App() {
 
         {touchPreview &&
           (() => {
-            const previewCard = hand[touchPreview.row]?.[touchPreview.col];
+            const previewCard =
+              touchPreview.source === "reserve"
+                ? reserveCard
+                : hand[touchPreview.row]?.[touchPreview.col];
             if (!previewCard) return null;
 
             return (

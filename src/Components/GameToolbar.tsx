@@ -3,6 +3,7 @@ import { IconButton } from "@radix-ui/themes";
 import { BarChartIcon, GearIcon, QuestionMarkIcon } from "@radix-ui/react-icons";
 import "../css/Settings.css";
 import HowToPlay from "./HowToPlay";
+import type { GameMode } from "./GameModeDialog";
 import Settings, { type GameSettings } from "./Settings";
 import Stats, { type GameStats } from "./Stats";
 
@@ -10,11 +11,13 @@ function GameToolbar({
   settings,
   onSettingsChange,
   stats,
+  gameMode,
   onResetStats,
 }: {
   settings: GameSettings;
   onSettingsChange: (next: GameSettings) => void;
   stats: GameStats;
+  gameMode: GameMode;
   onResetStats: () => void;
 }) {
   const [howToOpen, setHowToOpen] = React.useState(false);
@@ -48,11 +51,16 @@ function GameToolbar({
           <QuestionMarkIcon width="25" height="25" />
         </IconButton>
       </div>
-      <HowToPlay open={howToOpen} onOpenChange={setHowToOpen} />
+      <HowToPlay
+        open={howToOpen}
+        onOpenChange={setHowToOpen}
+        mode={gameMode}
+      />
       <Stats
         open={statsOpen}
         onOpenChange={setStatsOpen}
         stats={stats}
+        mode={gameMode}
         onResetStats={onResetStats}
       />
       <Settings

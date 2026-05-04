@@ -492,10 +492,10 @@
 
 @media (max-width: 640px) {
   :root {
-    --card-width: 82px;
-    --card-height: 112px;
+    --card-width: 84px;
+    --card-height: 115px;
     --card-radius: 10px;
-    --stack-offset: 32px;
+    --stack-offset: 33px;
     --card-gap: 10px;
   }
 
@@ -531,11 +531,11 @@
 
 @media (max-width: 480px) {
   :root {
-    --card-width: 72px;
-    --card-height: 98px;
+    --card-width: 76px;
+    --card-height: 104px;
     --card-radius: 9px;
-    --stack-offset: 28px;
-    --card-gap: 8px;
+    --stack-offset: 29px;
+    --card-gap: 7px;
   }
 
   .card__corner {
@@ -601,11 +601,11 @@
 
 @media (max-width: 390px) {
   :root {
-    --card-width: 66px;
-    --card-height: 90px;
+    --card-width: 68px;
+    --card-height: 93px;
     --card-radius: 8px;
-    --stack-offset: 25px;
-    --card-gap: 6px;
+    --stack-offset: 26px;
+    --card-gap: 5px;
   }
 
   .card__faceRank {

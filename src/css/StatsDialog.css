@@ -29,6 +29,13 @@
   color: #173322;
 }
 
+.stats-mode-label {
+  flex: 1;
+  color: rgba(22, 53, 37, 0.68);
+  font-weight: 800;
+  text-align: right;
+}
+
 .stats-tile-label {
   color: rgba(22, 53, 37, 0.72);
   text-transform: uppercase;
@@ -56,6 +63,10 @@
   .stats-header {
     align-items: stretch !important;
     flex-direction: column !important;
+  }
+
+  .stats-mode-label {
+    text-align: left;
   }
 
   .stats-grid {
