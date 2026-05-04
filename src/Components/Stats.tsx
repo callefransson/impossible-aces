@@ -5,6 +5,7 @@ import {
   CrossCircledIcon,
   StarIcon,
   BackpackIcon,
+  CounterClockwiseClockIcon,
 } from "@radix-ui/react-icons";
 import {
   Button,
@@ -16,6 +17,7 @@ import {
   Text,
 } from "@radix-ui/themes";
 import "../css/StatsDialog.css";
+import { GAME_MODE_LABELS, type GameMode } from "./GameModeDialog";
 
 export type GameStats = {
   gamesPlayed: number;
@@ -24,7 +26,10 @@ export type GameStats = {
   fastestWinSeconds: number | null;
   currentWinStreak: number;
   bestWinStreak: number;
+  resets: number;
 };
+
+export type GameStatsByMode = Record<GameMode, GameStats>;
 
 export const DEFAULT_GAME_STATS: GameStats = {
   gamesPlayed: 0,
@@ -33,6 +38,12 @@ export const DEFAULT_GAME_STATS: GameStats = {
   fastestWinSeconds: null,
   currentWinStreak: 0,
   bestWinStreak: 0,
+  resets: 0,
+};
+
+export const DEFAULT_STATS_BY_MODE: GameStatsByMode = {
+  impossible: DEFAULT_GAME_STATS,
+  strategicReserve: DEFAULT_GAME_STATS,
 };
 
 function formatDuration(seconds: number | null): string {
@@ -77,11 +88,13 @@ export default function Stats({
   open,
   onOpenChange,
   stats,
+  mode,
   onResetStats,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stats: GameStats;
+  mode: GameMode;
   onResetStats: () => void;
 }) {
   return (
@@ -98,6 +111,9 @@ export default function Stats({
               <Heading size="5" className="stats-title">
                 Stats
               </Heading>
+              <Text size="2" className="stats-mode-label">
+                {GAME_MODE_LABELS[mode]}
+              </Text>
               <Button
                 variant="soft"
                 color="red"
@@ -143,6 +159,11 @@ export default function Stats({
                 icon={<StarIcon width="18" height="18" />}
                 label="Best streak"
                 value={stats.bestWinStreak}
+              />
+              <StatTile
+                icon={<CounterClockwiseClockIcon width="18" height="18" />}
+                label="Resets"
+                value={stats.resets}
               />
             </Grid>
 
