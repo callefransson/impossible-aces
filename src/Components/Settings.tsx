@@ -41,7 +41,6 @@ export default function Settings({
 
   const save = () => {
     onSettingsChange(draft);
-    localStorage.setItem("gameSettings", JSON.stringify(draft));
     onOpenChange(false);
   };
   return (
@@ -73,8 +72,8 @@ export default function Settings({
 
                     <Text size="1" className="removableCardHint">
                       When checked, a green border will appear around the card
-                      that will indicate it is removable. For a better game
-                      experience, it is recommended to keep this disabled.
+                      that will indicate it is removable. Turn this off for a
+                      tougher game.
                     </Text>
                   </Flex>
                 </CheckboxCards.Item>
@@ -95,15 +94,14 @@ export default function Settings({
                   <Flex direction="column" gap="1" style={{ width: "100%" }}>
                     <Flex align="center" justify="between" gap="2">
                       <Text size="2" className="removableCardTitle">
-                        <b>Disable deal button when moves still are possible</b>
+                        <b>Disable deal button when board moves are possible</b>
                       </Text>
                     </Flex>
 
                     <Text size="1">
                       When checked, the deal button will be disabled if there
-                      are still possible moves to make. Prevents players to
-                      accidentally deal new cards when they still have moves
-                      left.
+                      are still cards to remove or move into empty top-row
+                      spaces. Reserve-slot moves stay optional.
                     </Text>
                   </Flex>
                 </CheckboxCards.Item>

@@ -13,15 +13,15 @@ type CardProps = {
   isTouchDragging?: boolean;
   isTouchPreview?: boolean;
   onClick?: () => void;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragLeave?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onTouchStart?: (e: React.TouchEvent<HTMLDivElement>) => void;
-  onTouchMove?: (e: React.TouchEvent<HTMLDivElement>) => void;
-  onTouchEnd?: (e: React.TouchEvent<HTMLDivElement>) => void;
-  onTouchCancel?: (e: React.TouchEvent<HTMLDivElement>) => void;
+  onDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onDragOver?: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onDragLeave?: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onDrop?: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onTouchStart?: (e: React.TouchEvent<HTMLButtonElement>) => void;
+  onTouchMove?: (e: React.TouchEvent<HTMLButtonElement>) => void;
+  onTouchEnd?: (e: React.TouchEvent<HTMLButtonElement>) => void;
+  onTouchCancel?: (e: React.TouchEvent<HTMLButtonElement>) => void;
 };
 
 type SuitKey = "spades" | "clubs" | "hearts" | "diamonds";
@@ -118,12 +118,17 @@ export default function Cards({
 
   const pips = PIP_LAYOUT[r] ?? [];
   const useLargeStyle = cardStyle === "largeSymbols";
+  const isInteractive = Boolean(onClick || isDraggable);
 
   return (
-    <div
+    <button
+      type="button"
       className={className}
+      aria-label={`${r} of ${suite}`}
+      aria-pressed={isSelected || undefined}
       onClick={onClick}
       draggable={isDraggable}
+      tabIndex={isInteractive ? 0 : -1}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -168,6 +173,6 @@ export default function Cards({
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }

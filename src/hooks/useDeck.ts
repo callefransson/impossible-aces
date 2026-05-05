@@ -6,8 +6,15 @@ export type Card = {
   id: string;
 };
 
+export type DeckSnapshot = {
+  hand: Array<Array<Card | null>>;
+  reserveCard: Card | null;
+  removedIds: string[];
+};
+
 const SUITES = ["Hearts", "Spades", "Diamonds", "Clubs"];
 const RANKS = [...Array(9).keys()].map((n) => String(n + 2)).concat(["J", "Q", "K", "A"]);
+const EMPTY_HAND: Array<Array<Card | null>> = [[null, null, null, null]];
 
 function makeDeck(): Card[] {
   const deck: Card[] = [];
@@ -35,10 +42,22 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export default function useDeck(initialHandRows: Array<Array<Card | null>> = [[null, null, null, null]]) {
-  const [hand, setHand] = useState<Array<Array<Card | null>>>(initialHandRows);
-  const [reserveCard, setReserveCard] = useState<Card | null>(null);
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+function cloneHand(rows: Array<Array<Card | null>>) {
+  return rows.map((row) =>
+    [0, 1, 2, 3].map((col) => row[col] ?? null),
+  );
+}
+
+export default function useDeck(initialState?: Partial<DeckSnapshot>) {
+  const [hand, setHand] = useState<Array<Array<Card | null>>>(() =>
+    cloneHand(initialState?.hand ?? EMPTY_HAND),
+  );
+  const [reserveCard, setReserveCard] = useState<Card | null>(
+    () => initialState?.reserveCard ?? null,
+  );
+  const [removedIds, setRemovedIds] = useState<Set<string>>(
+    () => new Set(initialState?.removedIds ?? []),
+  );
 
   const dealtIdSet = () => {
     const ids = new Set(
