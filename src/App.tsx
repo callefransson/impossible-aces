@@ -34,6 +34,7 @@ const GAME_SETTINGS_KEY = "gameSettings";
 const GAME_STATS_KEY = "gameStats";
 const GAME_MODE_KEY = "gameMode";
 const SMALL_SCREEN_CARD_STYLE_BREAKPOINT = 640;
+const TOUCH_DRAG_THRESHOLD_PX = 8;
 
 type HandState = Array<Array<Card | null>>;
 type PendingAceReserveMove = {
@@ -695,14 +696,6 @@ export default function App() {
     pendingTouchTapRef.current = true;
     setDraggedCard({ row, col });
     showPlaceableCols();
-
-    setTouchPreview({
-      source: "board",
-      row,
-      col,
-      x: centerX,
-      y: centerY,
-    });
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -712,6 +705,14 @@ export default function App() {
     const touch = e.touches[0];
     if (!touch) return;
 
+    const deltaX = touch.clientX - touchDrag.startX;
+    const deltaY = touch.clientY - touchDrag.startY;
+
+    if (!touchDrag.moved) {
+      const distance = Math.hypot(deltaX, deltaY);
+      if (distance < TOUCH_DRAG_THRESHOLD_PX) return;
+    }
+
     touchDrag.moved = true;
     suppressNextClickBriefly();
     pendingTouchTapRef.current = false;
@@ -719,8 +720,8 @@ export default function App() {
       source: "board",
       row: touchDrag.row,
       col: touchDrag.col,
-      x: touchDrag.centerX + touch.clientX - touchDrag.startX,
-      y: touchDrag.centerY + touch.clientY - touchDrag.startY,
+      x: touchDrag.centerX + deltaX,
+      y: touchDrag.centerY + deltaY,
     });
     e.preventDefault();
   };
@@ -794,24 +795,13 @@ export default function App() {
       return;
     }
 
-    if (
-      isTouchTap &&
-      canDragCard(row, col) &&
-      hand[0] &&
-      hand[0][col] === null
-    ) {
-      setSelectedCard({ row, col });
-      setDraggedCard({ row, col });
-      showPlaceableCols();
-      return;
-    }
-
     const { allowed } = removeAt(row, col);
     if (!allowed) {
-      if (canReserveCard(row, col)) {
+      if (canDragCard(row, col) || canReserveCard(row, col)) {
         setSelectedCard({ row, col });
         setDraggedCard({ row, col });
         setSelectedReserve(false);
+        showPlaceableCols();
         return;
       }
 
@@ -858,12 +848,6 @@ export default function App() {
     setSelectedCard(null);
     setSelectedReserve(true);
     setPlaceableCols(getPlaceableCols());
-
-    setTouchPreview({
-      source: "reserve",
-      x: centerX,
-      y: centerY,
-    });
   };
 
   const handleReserveTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -873,13 +857,21 @@ export default function App() {
     const touch = e.touches[0];
     if (!touch) return;
 
+    const deltaX = touch.clientX - touchDrag.startX;
+    const deltaY = touch.clientY - touchDrag.startY;
+
+    if (!touchDrag.moved) {
+      const distance = Math.hypot(deltaX, deltaY);
+      if (distance < TOUCH_DRAG_THRESHOLD_PX) return;
+    }
+
     touchDrag.moved = true;
     suppressNextClickBriefly();
     pendingTouchTapRef.current = false;
     setTouchPreview({
       source: "reserve",
-      x: touchDrag.centerX + touch.clientX - touchDrag.startX,
-      y: touchDrag.centerY + touch.clientY - touchDrag.startY,
+      x: touchDrag.centerX + deltaX,
+      y: touchDrag.centerY + deltaY,
     });
     e.preventDefault();
   };
@@ -920,6 +912,8 @@ export default function App() {
 
   const handleReserveClick = () => {
     if (!reserveCard) return;
+    const isTouchTap = pendingTouchTapRef.current;
+    pendingTouchTapRef.current = false;
 
     if (suppressClickRef.current) {
       suppressClickRef.current = false;
@@ -927,6 +921,14 @@ export default function App() {
         window.clearTimeout(suppressClickTimeoutRef.current);
         suppressClickTimeoutRef.current = null;
       }
+      return;
+    }
+
+    if (isTouchTap) {
+      setSelectedReserve(true);
+      setSelectedCard(null);
+      setDraggedCard(null);
+      setPlaceableCols(getPlaceableCols());
       return;
     }
 

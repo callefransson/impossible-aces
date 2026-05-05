@@ -1,6 +1,10 @@
 .app {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   min-height: 100vh;
   width: 100%;
+  box-sizing: border-box;
   padding: 24px 16px 40px;
   background:
     radial-gradient(
@@ -19,7 +23,9 @@
 }
 
 .app-shell {
+  width: fit-content;
   max-width: 1040px;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 30px 28px 34px;
   border-radius: 32px;

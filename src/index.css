@@ -1,7 +1,7 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
 }
 
@@ -21,9 +21,8 @@ body,
 
 body {
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top, rgba(255, 245, 214, 0.08), transparent 28%),
     linear-gradient(180deg, #12362b, #091a14 78%);
