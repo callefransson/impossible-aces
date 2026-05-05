@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import "../css/GameModal.css";
 
@@ -14,11 +14,15 @@ type GameEndModalProps = {
   loadNewGame: () => void;
   canInspectImpossible?: boolean;
   onInspectImpossible?: () => void;
+  summaryItems?: Array<{
+    label: string;
+    value: string | number;
+  }>;
 };
 
 const celebrationBursts = [
   {
-    symbol: "♠",
+    symbol: "\u2660",
     color: "black",
     x: "-140px",
     y: "-118px",
@@ -27,7 +31,7 @@ const celebrationBursts = [
     rotate: "-22deg",
   },
   {
-    symbol: "♥",
+    symbol: "\u2665",
     color: "red",
     x: "-72px",
     y: "-188px",
@@ -36,7 +40,7 @@ const celebrationBursts = [
     rotate: "18deg",
   },
   {
-    symbol: "♣",
+    symbol: "\u2663",
     color: "black",
     x: "0px",
     y: "-220px",
@@ -45,7 +49,7 @@ const celebrationBursts = [
     rotate: "-8deg",
   },
   {
-    symbol: "♦",
+    symbol: "\u2666",
     color: "red",
     x: "82px",
     y: "-184px",
@@ -54,7 +58,7 @@ const celebrationBursts = [
     rotate: "20deg",
   },
   {
-    symbol: "♥",
+    symbol: "\u2665",
     color: "red",
     x: "146px",
     y: "-112px",
@@ -63,7 +67,7 @@ const celebrationBursts = [
     rotate: "-16deg",
   },
   {
-    symbol: "♣",
+    symbol: "\u2663",
     color: "black",
     x: "-104px",
     y: "-44px",
@@ -71,13 +75,24 @@ const celebrationBursts = [
     duration: "990ms",
     rotate: "12deg",
   },
-];
+] as const;
+
+type BurstStyle = CSSProperties &
+  Record<
+    | "--burst-x"
+    | "--burst-y"
+    | "--burst-delay"
+    | "--burst-duration"
+    | "--burst-rotate",
+    string
+  >;
 
 export default function GameEndModal({
   endState,
   loadNewGame,
   canInspectImpossible = false,
   onInspectImpossible,
+  summaryItems = [],
 }: GameEndModalProps) {
   const [modal, setModal] = useState<GameEndState | null>(null);
   const [showWinCelebration, setShowWinCelebration] = useState(false);
@@ -89,19 +104,27 @@ export default function GameEndModal({
       return;
     }
 
+    setModal(null);
+    setShowWinCelebration(false);
+
     if (endState.kind === "lose") {
+      navigator.vibrate?.(30);
       const timeoutId = window.setTimeout(() => {
         setModal(endState);
       }, 450);
       return () => window.clearTimeout(timeoutId);
     }
 
+    navigator.vibrate?.([22, 28, 42]);
     setShowWinCelebration(true);
-    const celebrationId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       setShowWinCelebration(false);
       setModal(endState);
     }, 1200);
-    return () => window.clearTimeout(celebrationId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      setShowWinCelebration(false);
+    };
   }, [endState]);
 
   const open = modal !== null;
@@ -117,16 +140,16 @@ export default function GameEndModal({
           <div className="win-burst__glow" />
           {celebrationBursts.map((burst, index) => (
             <div
-              key={`${burst.symbol}-${index}`}
               className={`win-burst__card win-burst__card--${burst.color}`}
+              key={`${burst.symbol}-${index}`}
               style={
                 {
-                  ["--burst-x" as any]: burst.x,
-                  ["--burst-y" as any]: burst.y,
-                  ["--burst-delay" as any]: burst.delay,
-                  ["--burst-duration" as any]: burst.duration,
-                  ["--burst-rotate" as any]: burst.rotate,
-                } as React.CSSProperties
+                  "--burst-x": burst.x,
+                  "--burst-y": burst.y,
+                  "--burst-delay": burst.delay,
+                  "--burst-duration": burst.duration,
+                  "--burst-rotate": burst.rotate,
+                } as BurstStyle
               }
             >
               <span className="win-burst__card-rank">A</span>
@@ -157,6 +180,17 @@ export default function GameEndModal({
               </Dialog.Description>
             ) : null}
 
+            {summaryItems.length > 0 ? (
+              <div className="gem-summary" aria-label="Round summary">
+                {summaryItems.map((item) => (
+                  <div className="gem-summary-item" key={item.label}>
+                    <span className="gem-summary-label">{item.label}</span>
+                    <span className="gem-summary-value">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <div className="gem-actions">
               {canInspectImpossible && onInspectImpossible ? (
                 <Dialog.Close asChild>
@@ -165,7 +199,7 @@ export default function GameEndModal({
                     className="gem-button gem-button--secondary"
                     onClick={onInspectImpossible}
                   >
-                    Show me why
+                    Inspect board
                   </button>
                 </Dialog.Close>
               ) : null}
@@ -175,7 +209,7 @@ export default function GameEndModal({
                   className="gem-button gem-button--primary"
                   onClick={handlePlayAgain}
                 >
-                  Play again
+                  New round
                 </button>
               </Dialog.Close>
             </div>

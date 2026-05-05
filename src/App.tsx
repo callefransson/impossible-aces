@@ -1,11 +1,12 @@
 import Cards from "./Components/Cards";
+import FirstRunTutorial from "./Components/FirstRunTutorial";
 import GameModeDialog, {
   GAME_MODE_LABELS,
   type GameMode,
 } from "./Components/GameModeDialog";
 import GameEndModal from "./Components/GameModal";
 import type { GameEndState } from "./Components/GameModal";
-import GameToolbar from "./Components/GameToolbar";
+import GameToolbar, { type ToolbarDialog } from "./Components/GameToolbar";
 import type { GameSettings } from "./Components/Settings";
 import {
   DEFAULT_GAME_STATS,
@@ -14,7 +15,7 @@ import {
   type GameStatsByMode,
 } from "./Components/Stats";
 import "./css/App.css";
-import useDeck, { type Card } from "./hooks/useDeck";
+import useDeck, { type Card, type DeckSnapshot } from "./hooks/useDeck";
 import {
   Button,
   Card as RadixCard,
@@ -33,8 +34,29 @@ const DEFAULT_SETTINGS: GameSettings = {
 const GAME_SETTINGS_KEY = "gameSettings";
 const GAME_STATS_KEY = "gameStats";
 const GAME_MODE_KEY = "gameMode";
+const CURRENT_ROUND_KEY = "currentRound";
+const FIRST_RUN_TUTORIAL_KEY = "hasSeenFirstRunTutorial";
 const SMALL_SCREEN_CARD_STYLE_BREAKPOINT = 640;
 const TOUCH_DRAG_THRESHOLD_PX = 8;
+const CARD_SUITS = ["Hearts", "Spades", "Diamonds", "Clubs"] as const;
+const CARD_RANKS = [
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "J",
+  "Q",
+  "K",
+  "A",
+] as const;
+const CARD_IDS = new Set(
+  CARD_SUITS.flatMap((suite) => CARD_RANKS.map((rank) => `${suite}-${rank}`)),
+);
 
 type HandState = Array<Array<Card | null>>;
 type PendingAceReserveMove = {
@@ -56,6 +78,17 @@ type TouchPreview =
       x: number;
       y: number;
     };
+type PersistedRound = {
+  version: 1;
+  gameMode: GameMode;
+  deck: DeckSnapshot;
+  roundStartedAt: number | null;
+  roundResultRecorded: boolean;
+};
+type GameEndSummary = {
+  label: string;
+  value: string | number;
+};
 
 function trimEmptyBottomRows(rows: HandState): HandState {
   const trimmed = rows.map((row) => row.slice()) as HandState;
@@ -89,8 +122,15 @@ function isWinningHand(rows: HandState): boolean {
   );
 }
 
-function normalizeStats(stats: Partial<GameStats> | null | undefined): GameStats {
+function normalizeStats(
+  stats: Partial<GameStats> | null | undefined,
+): GameStats {
   return { ...DEFAULT_GAME_STATS, ...(stats ?? {}) };
+}
+
+function loadGameMode(): GameMode {
+  const raw = localStorage.getItem(GAME_MODE_KEY);
+  return raw === "strategicReserve" ? "strategicReserve" : "impossible";
 }
 
 function loadStatsByMode(): GameStatsByMode {
@@ -126,6 +166,184 @@ function loadStatsByMode(): GameStatsByMode {
       strategicReserve: normalizeStats(null),
     };
   }
+}
+
+function getDeviceDefaultSettings(): GameSettings {
+  if (
+    typeof window !== "undefined" &&
+    window.innerWidth <= SMALL_SCREEN_CARD_STYLE_BREAKPOINT
+  ) {
+    return { ...DEFAULT_SETTINGS, cardStyle: "largeSymbols" };
+  }
+
+  return DEFAULT_SETTINGS;
+}
+
+function normalizeSettings(
+  settings: Partial<GameSettings> | null | undefined,
+  fallback = getDeviceDefaultSettings(),
+): GameSettings {
+  return {
+    removableCard:
+      typeof settings?.removableCard === "boolean"
+        ? settings.removableCard
+        : fallback.removableCard,
+    disableDealButton:
+      typeof settings?.disableDealButton === "boolean"
+        ? settings.disableDealButton
+        : fallback.disableDealButton,
+    cardStyle:
+      settings?.cardStyle === "classic" ||
+      settings?.cardStyle === "largeSymbols"
+        ? settings.cardStyle
+        : fallback.cardStyle,
+  };
+}
+
+function loadSettings(): GameSettings {
+  const fallback = getDeviceDefaultSettings();
+  const raw = localStorage.getItem(GAME_SETTINGS_KEY);
+  if (!raw) return fallback;
+
+  try {
+    return normalizeSettings(JSON.parse(raw), fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+function isStoredCard(value: unknown): value is Card {
+  if (!value || typeof value !== "object") return false;
+
+  const card = value as Partial<Card>;
+  return (
+    typeof card.suite === "string" &&
+    typeof card.rank === "string" &&
+    typeof card.id === "string" &&
+    card.id === `${card.suite}-${card.rank}` &&
+    CARD_IDS.has(card.id)
+  );
+}
+
+function normalizeStoredCard(value: unknown): Card | null {
+  return isStoredCard(value)
+    ? { suite: value.suite, rank: value.rank, id: value.id }
+    : null;
+}
+
+function normalizeStoredHand(value: unknown): HandState | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 13) {
+    return null;
+  }
+
+  const seenIds = new Set<string>();
+  const rows = value.map((row) => {
+    if (!Array.isArray(row)) return null;
+
+    const normalizedRow = [0, 1, 2, 3].map((col) => {
+      const cardValue = row[col];
+      if (cardValue === null) return null;
+
+      const card = normalizeStoredCard(cardValue);
+      if (!card || seenIds.has(card.id)) return undefined;
+
+      seenIds.add(card.id);
+      return card;
+    });
+
+    return normalizedRow.some((card) => card === undefined)
+      ? null
+      : (normalizedRow as Array<Card | null>);
+  });
+
+  if (rows.some((row) => row === null)) return null;
+  return trimEmptyBottomRows(rows as HandState);
+}
+
+function normalizeRemovedIds(
+  value: unknown,
+  unavailableIds: Set<string>,
+): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const ids = new Set<string>();
+  for (const id of value) {
+    if (typeof id === "string" && CARD_IDS.has(id) && !unavailableIds.has(id)) {
+      ids.add(id);
+    }
+  }
+
+  return [...ids];
+}
+
+function loadPersistedRound(): PersistedRound | null {
+  const raw = localStorage.getItem(CURRENT_ROUND_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    const gameMode =
+      parsed?.gameMode === "strategicReserve"
+        ? "strategicReserve"
+        : "impossible";
+    const hand = normalizeStoredHand(parsed?.deck?.hand);
+    if (!hand) return null;
+
+    const unavailableIds = new Set(
+      hand
+        .flat()
+        .filter(Boolean)
+        .map((card) => (card as Card).id),
+    );
+    const reserveCard = normalizeStoredCard(parsed?.deck?.reserveCard);
+    if (reserveCard) {
+      if (unavailableIds.has(reserveCard.id)) return null;
+      unavailableIds.add(reserveCard.id);
+    }
+
+    const removedIds = normalizeRemovedIds(
+      parsed?.deck?.removedIds,
+      unavailableIds,
+    );
+    const hasStartedGame =
+      hand.some((row) => row.some((card) => card !== null)) ||
+      reserveCard !== null ||
+      removedIds.length > 0;
+    if (!hasStartedGame) return null;
+
+    const roundStartedAt =
+      typeof parsed?.roundStartedAt === "number" &&
+      Number.isFinite(parsed.roundStartedAt)
+        ? parsed.roundStartedAt
+        : null;
+
+    return {
+      version: 1,
+      gameMode,
+      deck: { hand, reserveCard, removedIds },
+      roundStartedAt,
+      roundResultRecorded: parsed?.roundResultRecorded === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearPersistedRound() {
+  localStorage.removeItem(CURRENT_ROUND_KEY);
+}
+
+function hasSeenFirstRunTutorial() {
+  return localStorage.getItem(FIRST_RUN_TUTORIAL_KEY) === "true";
+}
+
+function formatRoundDuration(seconds: number | null): string {
+  if (seconds === null) return "-";
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes === 0) return `${remainingSeconds}s`;
+  return `${minutes}m ${remainingSeconds}s`;
 }
 
 function getVisibleInfo(rows: HandState) {
@@ -258,6 +476,12 @@ function canStillReachWin(rows: HandState): boolean {
 }
 
 export default function App() {
+  const [persistedRound] = useState<PersistedRound | null>(() =>
+    loadPersistedRound(),
+  );
+  const [tutorialOpen, setTutorialOpen] = useState(
+    () => !persistedRound && !hasSeenFirstRunTutorial(),
+  );
   const {
     hand,
     dealFour,
@@ -265,6 +489,7 @@ export default function App() {
     reset,
     restart,
     reserveCard,
+    removedIds,
     removableFlags,
     removeAt,
     moveCard,
@@ -272,7 +497,7 @@ export default function App() {
     moveReserveToTopSlot,
     totalCardsLeft,
     hasStartedGame,
-  } = useDeck();
+  } = useDeck(persistedRound?.deck);
 
   const [draggedCard, setDraggedCard] = useState<{
     row: number;
@@ -285,33 +510,23 @@ export default function App() {
     col: number;
   } | null>(null);
   const [selectedReserve, setSelectedReserve] = useState(false);
+  const [toolbarDialog, setToolbarDialog] = useState<ToolbarDialog>(null);
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
   const [pendingAceReserveMove, setPendingAceReserveMove] =
     useState<PendingAceReserveMove>(null);
   const [gameMode, setGameMode] = useState<GameMode>(() => {
-    const raw = localStorage.getItem(GAME_MODE_KEY);
-    return raw === "strategicReserve" ? "strategicReserve" : "impossible";
+    return persistedRound?.gameMode ?? loadGameMode();
   });
   const [showTeaseToast, setShowTeaseToast] = useState(false);
   const [showImpossibleReason, setShowImpossibleReason] = useState(false);
   const [touchPreview, setTouchPreview] = useState<TouchPreview | null>(null);
-  const [settings, setSettings] = useState<GameSettings>(() => {
-    const raw = localStorage.getItem(GAME_SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-
-    if (
-      typeof window !== "undefined" &&
-      window.innerWidth <= SMALL_SCREEN_CARD_STYLE_BREAKPOINT
-    ) {
-      return { ...DEFAULT_SETTINGS, cardStyle: "largeSymbols" };
-    }
-
-    return DEFAULT_SETTINGS;
-  });
+  const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
   const [statsByMode, setStatsByMode] = useState<GameStatsByMode>(() =>
     loadStatsByMode(),
   );
-  const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null);
+  const [roundStartedAt, setRoundStartedAt] = useState<number | null>(
+    () => persistedRound?.roundStartedAt ?? null,
+  );
   const touchDragRef = useRef<{
     row: number;
     col: number;
@@ -331,8 +546,11 @@ export default function App() {
   const suppressClickRef = useRef(false);
   const suppressClickTimeoutRef = useRef<number | null>(null);
   const pendingTouchTapRef = useRef(false);
-  const roundResultRecordedRef = useRef(false);
+  const roundResultRecordedRef = useRef(
+    persistedRound?.roundResultRecorded ?? false,
+  );
   const teaseShownRef = useRef(false);
+  const backActionRef = useRef<() => boolean>(() => false);
 
   const flatHand = hand.flat();
   const flatRemovable = removableFlags.flat();
@@ -341,6 +559,13 @@ export default function App() {
   const hasCompletedAceRow =
     hand[0]?.every((card) => card?.rank === "A") === true;
   const currentStats = statsByMode[gameMode] ?? DEFAULT_GAME_STATS;
+  const hasMoveState =
+    selectedCard !== null ||
+    selectedReserve ||
+    draggedCard !== null ||
+    draggedReserve ||
+    touchPreview !== null ||
+    placeableCols.size > 0;
 
   // Check if a card is the bottommost card in its column
   const canDragCard = (row: number, col: number): boolean => {
@@ -435,6 +660,9 @@ export default function App() {
     return false;
   }, [hand, flatRemovable, reserveCard]);
 
+  const shouldBlockDealForMoves =
+    settings.disableDealButton && hasBoardMoves;
+
   // Function to check if any moves are possible (removals, board moves, or reserve moves)
   const hasMoves = useMemo(() => {
     if (hasBoardMoves) return true;
@@ -471,8 +699,8 @@ export default function App() {
     if (isWin) {
       return {
         kind: "win",
-        title: "Congratulations!",
-        description: "You've won the game!",
+        title: "Aces complete",
+        description: "The board is clear and all four Aces are home.",
         tone: "win",
       };
     }
@@ -480,16 +708,41 @@ export default function App() {
     if (isLose) {
       return {
         kind: "lose",
-        title: "Game Over!",
+        title: "No moves left",
         description: canInspectImpossible
-          ? "No more moves left. You can inspect the board to see why this round became impossible to win."
-          : "No more moves left. Start a fresh round and try again.",
+          ? "This round is locked. You can inspect the board or start fresh."
+          : "The board is locked. Start a fresh round and try again.",
         tone: "lose",
       };
     }
 
     return null;
   }, [canInspectImpossible, isLose, isWin]);
+
+  const completedInSeconds =
+    endState && roundStartedAt !== null
+      ? Math.max(1, Math.round((Date.now() - roundStartedAt) / 1000))
+      : null;
+  const endSummary = useMemo<GameEndSummary[]>(
+    () =>
+      endState
+        ? [
+            {
+              label: "Time",
+              value: formatRoundDuration(completedInSeconds),
+            },
+            {
+              label: "Cards still in play",
+              value: cardsOnBoard + (reserveCard ? 1 : 0),
+            },
+            {
+              label: "Mode",
+              value: GAME_MODE_LABELS[gameMode],
+            },
+          ]
+        : [],
+    [cardsOnBoard, completedInSeconds, endState, gameMode, reserveCard],
+  );
 
   const handleSettingsChange = (next: GameSettings) => {
     setSettings(next);
@@ -517,6 +770,7 @@ export default function App() {
   const resetBoard = () => {
     setShowTeaseToast(false);
     setShowImpossibleReason(false);
+    clearPersistedRound();
     clearMoveState();
     setRoundStartedAt(null);
     roundResultRecordedRef.current = false;
@@ -525,6 +779,11 @@ export default function App() {
   };
 
   const handleResetBoard = () => {
+    if (!hasStartedGame) {
+      resetBoard();
+      return;
+    }
+
     setStatsByMode((current) => {
       const next = {
         ...DEFAULT_STATS_BY_MODE,
@@ -600,6 +859,59 @@ export default function App() {
     setPlaceableCols(getPlaceableCols());
   };
 
+  const dismissTutorial = () => {
+    localStorage.setItem(FIRST_RUN_TUTORIAL_KEY, "true");
+    setTutorialOpen(false);
+  };
+
+  const handleBackAction = () => {
+    if (tutorialOpen) {
+      dismissTutorial();
+      return true;
+    }
+
+    if (pendingAceReserveMove) {
+      setPendingAceReserveMove(null);
+      return true;
+    }
+
+    if (modeDialogOpen) {
+      setModeDialogOpen(false);
+      return true;
+    }
+
+    if (toolbarDialog) {
+      setToolbarDialog(null);
+      return true;
+    }
+
+    if (hasMoveState) {
+      clearMoveState();
+      return true;
+    }
+
+    if (showTeaseToast) {
+      setShowTeaseToast(false);
+      return true;
+    }
+
+    if (hasStartedGame && !endState) {
+      return !window.confirm(
+        "Leave this round? Your current game will be saved.",
+      );
+    }
+
+    return false;
+  };
+
+  const performReserveMove = (fromRow: number, fromCol: number) => {
+    if (!canReserveCard(fromRow, fromCol)) return { moved: false };
+
+    const moved = moveCardToReserve(fromRow, fromCol);
+    if (moved.moved) clearMoveState();
+    return moved;
+  };
+
   const performBoardMove = (
     fromRow: number,
     fromCol: number,
@@ -617,16 +929,16 @@ export default function App() {
     toRow: number,
     toCol: number,
   ) => {
-    if (
-      reserveCard &&
-      wouldCompleteAceRow(fromRow, fromCol, toRow, toCol)
-    ) {
+    if (reserveCard && wouldCompleteAceRow(fromRow, fromCol, toRow, toCol)) {
       setPendingAceReserveMove({ fromRow, fromCol, toRow, toCol });
       clearMoveState();
       return { moved: false, pendingWarning: true };
     }
 
-    return { ...performBoardMove(fromRow, fromCol, toRow, toCol), pendingWarning: false };
+    return {
+      ...performBoardMove(fromRow, fromCol, toRow, toCol),
+      pendingWarning: false,
+    };
   };
 
   const continuePendingAceMove = () => {
@@ -666,14 +978,14 @@ export default function App() {
     requestBoardMove(draggedCard.row, draggedCard.col, row, col);
   };
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnd = () => {
     clearMoveState();
   };
 
   const handleTouchStart = (
     row: number,
     col: number,
-    e: React.TouchEvent<HTMLDivElement>,
+    e: React.TouchEvent<HTMLButtonElement>,
   ) => {
     if (!canDragCard(row, col) && !canReserveCard(row, col)) return;
     const touch = e.touches[0];
@@ -698,7 +1010,7 @@ export default function App() {
     showPlaceableCols();
   };
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
     const touchDrag = touchDragRef.current;
     if (!touchDrag) return;
 
@@ -726,7 +1038,7 @@ export default function App() {
     e.preventDefault();
   };
 
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
     const touchDrag = touchDragRef.current;
     if (!touchDrag) return;
 
@@ -747,7 +1059,7 @@ export default function App() {
 
     if (target instanceof HTMLElement) {
       if (target.dataset.reserveSlot === "true") {
-        moveCardToReserve(touchDrag.row, touchDrag.col);
+        performReserveMove(touchDrag.row, touchDrag.col);
       } else {
         const row = Number(target.dataset.dropRow);
         const col = Number(target.dataset.dropCol);
@@ -822,7 +1134,7 @@ export default function App() {
     setPlaceableCols(getPlaceableCols());
   };
 
-  const handleReserveTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleReserveTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
     if (!reserveCard || !(hand[0]?.some((card) => card === null) ?? false)) {
       return;
     }
@@ -850,7 +1162,7 @@ export default function App() {
     setPlaceableCols(getPlaceableCols());
   };
 
-  const handleReserveTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleReserveTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
     const touchDrag = reserveTouchDragRef.current;
     if (!touchDrag) return;
 
@@ -876,7 +1188,7 @@ export default function App() {
     e.preventDefault();
   };
 
-  const handleReserveTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleReserveTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
     const touchDrag = reserveTouchDragRef.current;
     if (!touchDrag) return;
 
@@ -948,8 +1260,7 @@ export default function App() {
     e.currentTarget.style.opacity = "1";
 
     if (!draggedCard) return;
-    const moved = moveCardToReserve(draggedCard.row, draggedCard.col);
-    if (moved.moved) clearMoveState();
+    performReserveMove(draggedCard.row, draggedCard.col);
   };
 
   const handleReserveSlotClick = () => {
@@ -957,8 +1268,7 @@ export default function App() {
       return;
     }
 
-    const moved = moveCardToReserve(selectedCard.row, selectedCard.col);
-    if (moved.moved) clearMoveState();
+    performReserveMove(selectedCard.row, selectedCard.col);
   };
 
   useEffect(() => {
@@ -978,12 +1288,70 @@ export default function App() {
   }, [touchPreview]);
 
   useEffect(() => {
+    backActionRef.current = handleBackAction;
+  });
+
+  useEffect(() => {
+    const guardState = { impossibleAcesBackGuard: true };
+    if (!window.history.state?.impossibleAcesBackGuard) {
+      window.history.pushState(guardState, "");
+    }
+
+    const handlePopState = () => {
+      const handled = backActionRef.current();
+
+      if (handled) {
+        window.history.pushState(guardState, "");
+        return;
+      }
+
+      window.removeEventListener("popstate", handlePopState);
+      window.history.back();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (suppressClickTimeoutRef.current !== null) {
         window.clearTimeout(suppressClickTimeoutRef.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasStartedGame || endState) {
+      clearPersistedRound();
+      return;
+    }
+
+    const round: PersistedRound = {
+      version: 1,
+      gameMode,
+      deck: {
+        hand: trimEmptyBottomRows(hand),
+        reserveCard,
+        removedIds: [...removedIds],
+      },
+      roundStartedAt,
+      roundResultRecorded: roundResultRecordedRef.current,
+    };
+
+    localStorage.setItem(CURRENT_ROUND_KEY, JSON.stringify(round));
+  }, [
+    endState,
+    gameMode,
+    hand,
+    hasStartedGame,
+    removedIds,
+    reserveCard,
+    roundStartedAt,
+  ]);
 
   useEffect(() => {
     if (
@@ -1070,6 +1438,8 @@ export default function App() {
               stats={currentStats}
               gameMode={gameMode}
               onResetStats={handleResetStats}
+              activeDialog={toolbarDialog}
+              onActiveDialogChange={setToolbarDialog}
             />
           </div>
 
@@ -1098,7 +1468,7 @@ export default function App() {
                     disabled={
                       totalCardsLeft === 0 ||
                       !!endState ||
-                      (settings.disableDealButton && hasBoardMoves)
+                      shouldBlockDealForMoves
                     }
                   >
                     Deal 4 New
@@ -1297,6 +1667,7 @@ export default function App() {
             loadNewGame={restartBoard}
             canInspectImpossible={canInspectImpossible}
             onInspectImpossible={() => setShowImpossibleReason(true)}
+            summaryItems={endSummary}
           />
           <GameModeDialog
             open={modeDialogOpen}
@@ -1343,11 +1714,12 @@ export default function App() {
               </RadixCard>
             </Dialog.Content>
           </Dialog.Root>
+          <FirstRunTutorial open={tutorialOpen} onDone={dismissTutorial} />
         </div>
 
         {showTeaseToast ? (
           <div className="tease-toast" role="status" aria-live="polite">
-            <span>You might want to give up soon...</span>
+            <span>This board is getting difficult!</span>
             <button
               type="button"
               className="tease-toast-close"

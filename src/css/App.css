@@ -1,11 +1,19 @@
 .app {
+  --app-padding-top: 24px;
+  --app-padding-right: 16px;
+  --app-padding-bottom: 40px;
+  --app-padding-left: 16px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   box-sizing: border-box;
-  padding: 24px 16px 40px;
+  padding: calc(var(--app-padding-top) + env(safe-area-inset-top, 0px))
+    calc(var(--app-padding-right) + env(safe-area-inset-right, 0px))
+    calc(var(--app-padding-bottom) + env(safe-area-inset-bottom, 0px))
+    calc(var(--app-padding-left) + env(safe-area-inset-left, 0px));
   background:
     radial-gradient(
       1000px 520px at 50% -10%,
@@ -62,7 +70,7 @@
 .tease-toast {
   position: fixed;
   left: 50%;
-  bottom: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   z-index: 2100;
   display: inline-flex;
   align-items: center;
@@ -429,10 +437,185 @@
     inset 0 0 0 1px rgba(28, 74, 53, 0.1);
 }
 
+.first-run-dialog {
+  width: min(92vw, 720px);
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 24px !important;
+  background: #f7fbf6 !important;
+  box-shadow: 0 28px 80px rgba(5, 18, 13, 0.28) !important;
+}
+
+.first-run-layout {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.82fr) 1fr;
+  min-height: 460px;
+}
+
+.first-run-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 241, 178, 0.28), transparent 34%),
+    linear-gradient(180deg, #1e714f, #104030);
+}
+
+.first-run-preview::before {
+  content: "";
+  position: absolute;
+  inset: 24px;
+  border: 1px solid rgba(255, 240, 199, 0.18);
+  border-radius: 22px;
+}
+
+.first-run-card,
+.first-run-slot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 102px;
+  border-radius: 12px;
+}
+
+.first-run-card {
+  border: 1px solid rgba(24, 24, 24, 0.85);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 243, 235, 0.98)),
+    #fff;
+  color: #1b1b1b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 34px;
+  font-weight: 900;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.24);
+}
+
+.first-run-card--ace {
+  top: 74px;
+  left: 48px;
+  color: #ba1e1e;
+  transform: rotate(-8deg);
+}
+
+.first-run-card--low {
+  left: 50%;
+  top: 50%;
+  transform: translate(-66%, -24%) rotate(4deg);
+  z-index: 2;
+}
+
+.first-run-card--high {
+  right: 46px;
+  bottom: 72px;
+  transform: rotate(8deg);
+}
+
+.first-run-slot {
+  right: 52px;
+  top: 78px;
+  border: 2px dashed rgba(255, 235, 189, 0.55);
+  background: rgba(6, 33, 23, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.first-run-copy {
+  padding: 30px;
+  color: #173322;
+}
+
+.first-run-title {
+  margin: 0;
+  color: #173322;
+  font-size: clamp(1.7rem, 4vw, 2.35rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.first-run-description {
+  margin: 10px 0 0;
+  color: rgba(23, 51, 34, 0.68);
+  font-size: 0.98rem;
+}
+
+.first-run-steps {
+  display: grid;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.first-run-step {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.first-run-step-index {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(31, 122, 69, 0.12);
+  color: #1f7a45;
+  font-weight: 900;
+}
+
+.first-run-step-label {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(23, 51, 34, 0.52);
+}
+
+.first-run-step-title {
+  margin-top: 2px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.first-run-step-body {
+  margin-top: 3px;
+  color: rgba(23, 51, 34, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.42;
+}
+
+.first-run-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 28px;
+}
+
+.first-run-button {
+  appearance: none;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.first-run-button--primary {
+  color: #f4fff7;
+  background: linear-gradient(135deg, #1f7a45, #34a05f);
+  box-shadow: 0 14px 28px rgba(38, 120, 71, 0.24);
+}
+
+.first-run-button:focus-visible {
+  outline: 3px solid rgba(31, 122, 69, 0.28);
+  outline-offset: 3px;
+}
+
 @media (max-width: 640px) {
   .app {
-    padding-inline: 10px;
-    padding-top: 10px;
+    --app-padding-top: 10px;
+    --app-padding-right: 10px;
+    --app-padding-left: 10px;
   }
 
   .app-shell {
@@ -484,6 +667,63 @@
 
   .how-to-play-gif {
     max-height: 48vh;
+  }
+
+  .first-run-dialog {
+    width: min(94vw, 500px);
+  }
+
+  .first-run-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .first-run-preview {
+    min-height: 178px;
+  }
+
+  .first-run-preview::before {
+    inset: 16px;
+    border-radius: 18px;
+  }
+
+  .first-run-card,
+  .first-run-slot {
+    width: 52px;
+    height: 72px;
+    border-radius: 9px;
+    font-size: 25px;
+  }
+
+  .first-run-card--ace {
+    top: 40px;
+    left: calc(50% - 116px);
+  }
+
+  .first-run-card--low {
+    transform: translate(-50%, -40%) rotate(4deg);
+  }
+
+  .first-run-card--high {
+    right: calc(50% - 116px);
+    bottom: 34px;
+  }
+
+  .first-run-slot {
+    right: calc(50% - 116px);
+    top: 36px;
+  }
+
+  .first-run-copy {
+    padding: 24px 20px 20px;
+  }
+
+  .first-run-actions {
+    justify-content: stretch;
+  }
+
+  .first-run-button {
+    width: 100%;
   }
 }
 
@@ -541,7 +781,8 @@
 
 @media (max-width: 390px) {
   .app {
-    padding-inline: 6px;
+    --app-padding-right: 6px;
+    --app-padding-left: 6px;
   }
 
   .app-shell {

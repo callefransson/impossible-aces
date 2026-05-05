@@ -7,22 +7,25 @@ import type { GameMode } from "./GameModeDialog";
 import Settings, { type GameSettings } from "./Settings";
 import Stats, { type GameStats } from "./Stats";
 
+export type ToolbarDialog = "stats" | "settings" | "howTo" | null;
+
 function GameToolbar({
   settings,
   onSettingsChange,
   stats,
   gameMode,
   onResetStats,
+  activeDialog,
+  onActiveDialogChange,
 }: {
   settings: GameSettings;
   onSettingsChange: (next: GameSettings) => void;
   stats: GameStats;
   gameMode: GameMode;
   onResetStats: () => void;
+  activeDialog: ToolbarDialog;
+  onActiveDialogChange: (dialog: ToolbarDialog) => void;
 }) {
-  const [howToOpen, setHowToOpen] = React.useState(false);
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [statsOpen, setStatsOpen] = React.useState(false);
   return (
     <>
       <div className="settings-section">
@@ -30,7 +33,7 @@ function GameToolbar({
           className="settings-btn"
           color="mint"
           variant="soft"
-          onClick={() => setStatsOpen(true)}
+          onClick={() => onActiveDialogChange("stats")}
         >
           <BarChartIcon width="25" height="25" />
         </IconButton>
@@ -38,7 +41,7 @@ function GameToolbar({
           className="settings-btn"
           color="mint"
           variant="soft"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => onActiveDialogChange("settings")}
         >
           <GearIcon width="25" height="25" />
         </IconButton>
@@ -46,26 +49,26 @@ function GameToolbar({
           className="settings-btn"
           color="mint"
           variant="soft"
-          onClick={() => setHowToOpen(true)}
+          onClick={() => onActiveDialogChange("howTo")}
         >
           <QuestionMarkIcon width="25" height="25" />
         </IconButton>
       </div>
       <HowToPlay
-        open={howToOpen}
-        onOpenChange={setHowToOpen}
+        open={activeDialog === "howTo"}
+        onOpenChange={(open) => onActiveDialogChange(open ? "howTo" : null)}
         mode={gameMode}
       />
       <Stats
-        open={statsOpen}
-        onOpenChange={setStatsOpen}
+        open={activeDialog === "stats"}
+        onOpenChange={(open) => onActiveDialogChange(open ? "stats" : null)}
         stats={stats}
         mode={gameMode}
         onResetStats={onResetStats}
       />
       <Settings
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
+        open={activeDialog === "settings"}
+        onOpenChange={(open) => onActiveDialogChange(open ? "settings" : null)}
         settings={settings}
         onSettingsChange={onSettingsChange}
       />

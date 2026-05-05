@@ -10,87 +10,6 @@
   opacity: 0;
 }
 
-.win-burst {
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.win-burst__glow {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  width: min(60vw, 460px);
-  height: min(60vw, 460px);
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 241, 176, 0.42), transparent 60%);
-  transform: translate(-50%, -50%);
-  animation: win-glow-pop 1050ms ease-out forwards;
-}
-
-.win-burst__card {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  width: clamp(58px, 12vw, 78px);
-  height: clamp(84px, 17vw, 110px);
-  border-radius: 14px;
-  border: 1px solid rgba(34, 34, 34, 0.88);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 243, 236, 0.98)),
-    #fff;
-  box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  opacity: 0;
-  transform: translate(-50%, -50%) rotate(var(--burst-rotate)) scale(0.5);
-  animation: win-card-burst var(--burst-duration) cubic-bezier(0.16, 1, 0.3, 1)
-    var(--burst-delay) forwards;
-}
-
-.win-burst__card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.45), transparent 35%),
-    linear-gradient(180deg, transparent 72%, rgba(0, 0, 0, 0.04));
-}
-
-.win-burst__card--red {
-  color: #c33434;
-}
-
-.win-burst__card--black {
-  color: #1d1d1d;
-}
-
-.win-burst__card-rank,
-.win-burst__card-suit {
-  position: absolute;
-  z-index: 1;
-  line-height: 1;
-}
-
-.win-burst__card-rank {
-  top: 10px;
-  left: 10px;
-  font-size: clamp(1.2rem, 2.8vw, 1.6rem);
-  font-weight: 800;
-  font-family: Georgia, "Times New Roman", serif;
-}
-
-.win-burst__card-suit {
-  left: 50%;
-  top: 53%;
-  transform: translate(-50%, -50%);
-  font-size: clamp(1.9rem, 4.8vw, 2.8rem);
-  font-weight: 800;
-}
-
 @supports not (
   (-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))
 ) {
@@ -113,11 +32,83 @@
   animation: gem-fade-out 180ms ease-in forwards;
 }
 
+.win-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.win-burst__glow {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  width: min(60vw, 460px);
+  height: min(60vw, 460px);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 241, 176, 0.42),
+    transparent 62%
+  );
+  transform: translate(-50%, -50%);
+  animation: win-glow-pop 1050ms ease-out forwards;
+}
+
+.win-burst__card {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  display: grid;
+  width: 72px;
+  height: 98px;
+  box-sizing: border-box;
+  align-content: center;
+  justify-items: center;
+  padding: 9px 0;
+  border: 1px solid rgba(22, 21, 18, 0.8);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 243, 235, 1)),
+    #fff;
+  box-shadow:
+    0 20px 38px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  font-family: Georgia, "Times New Roman", serif;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.55);
+  animation: win-card-burst var(--burst-duration)
+    cubic-bezier(0.16, 1, 0.3, 1) var(--burst-delay) forwards;
+  will-change: transform, opacity;
+}
+
+.win-burst__card--red {
+  color: #ba1e1e;
+}
+
+.win-burst__card--black {
+  color: #171717;
+}
+
+.win-burst__card-rank {
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 0.94;
+}
+
+.win-burst__card-suit {
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .gem-content {
   position: fixed;
   z-index: 1000;
   top: 50%;
   left: 50%;
+  box-sizing: border-box;
   width: min(440px, calc(100vw - 32px));
   padding: 28px;
   border-radius: 28px;
@@ -165,6 +156,7 @@
 .gem-badge,
 .gem-title,
 .gem-description,
+.gem-summary,
 .gem-actions {
   position: relative;
   z-index: 1;
@@ -212,6 +204,58 @@
 
 .gem-content--lose .gem-description {
   color: rgba(63, 35, 22, 0.82);
+}
+
+.gem-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.gem-summary-item {
+  min-width: 0;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(23, 70, 54, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(23, 70, 54, 0.08);
+}
+
+.gem-content--lose .gem-summary-item {
+  background: rgba(142, 78, 39, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(142, 78, 39, 0.08);
+}
+
+.gem-summary-label,
+.gem-summary-value {
+  display: block;
+  text-align: center;
+}
+
+.gem-summary-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(23, 51, 34, 0.58);
+}
+
+.gem-content--lose .gem-summary-label {
+  color: rgba(80, 48, 33, 0.6);
+}
+
+.gem-summary-value {
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #173322;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gem-content--lose .gem-summary-value {
+  color: #503021;
 }
 
 .gem-actions {
@@ -316,58 +360,99 @@
 
 @keyframes win-card-burst {
   0% {
-    opacity: 0.15;
-    transform: translate(-50%, -50%) rotate(var(--burst-rotate)) scale(0.5);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55) rotate(0deg);
   }
 
-  15% {
+  16% {
     opacity: 1;
   }
 
-  70% {
+  78% {
     opacity: 1;
-    transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y)))
-      rotate(calc(var(--burst-rotate) * 1.8)) scale(1.04);
+    transform: translate(
+        calc(-50% + var(--burst-x)),
+        calc(-50% + var(--burst-y))
+      )
+      scale(1) rotate(var(--burst-rotate));
   }
 
   100% {
     opacity: 0;
     transform: translate(
-        calc(-50% + (var(--burst-x) * 1.12)),
-        calc(-50% + (var(--burst-y) * 1.12))
+        calc(-50% + var(--burst-x)),
+        calc(-50% + var(--burst-y) - 24px)
       )
-      rotate(calc(var(--burst-rotate) * 2.1)) scale(0.9);
+      scale(0.92) rotate(var(--burst-rotate));
   }
 }
 
 @keyframes win-glow-pop {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.55);
+    transform: translate(-50%, -50%) scale(0.45);
   }
 
-  20% {
+  28% {
     opacity: 1;
   }
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.15);
+    transform: translate(-50%, -50%) scale(1.08);
   }
 }
 
 @media (max-width: 520px) {
   .gem-content {
+    width: min(
+      400px,
+      calc(
+        100vw - 56px - env(safe-area-inset-left, 0px) -
+          env(safe-area-inset-right, 0px)
+      )
+    );
     padding: 22px;
     border-radius: 22px;
   }
 
+  .win-burst__card {
+    width: 60px;
+    height: 82px;
+    border-radius: 9px;
+  }
+
+  .win-burst__card-rank {
+    font-size: 35px;
+  }
+
+  .win-burst__card-suit {
+    font-size: 25px;
+  }
+
   .gem-actions {
+    flex-direction: column-reverse;
     justify-content: stretch;
   }
 
   .gem-button {
     width: 100%;
+  }
+
+  .gem-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .gem-summary-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 12px;
+  }
+
+  .gem-summary-value {
+    margin-top: 0;
+    text-align: right;
   }
 }
 

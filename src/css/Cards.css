@@ -7,11 +7,14 @@
 }
 
 .card {
+  appearance: none;
   position: relative;
   width: var(--card-width);
   height: var(--card-height);
   display: block;
   box-sizing: border-box;
+  padding: 0;
+  margin: 0;
   border: 1px solid rgba(26, 26, 26, 0.9);
   border-radius: var(--card-radius);
   background:
@@ -26,11 +29,18 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.4);
   -webkit-user-select: none;
   user-select: none;
+  font: inherit;
+  text-align: inherit;
   transition:
     transform 120ms ease,
     box-shadow 120ms ease,
     outline-color 120ms ease;
   touch-action: manipulation;
+}
+
+.card:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.92);
+  outline-offset: 4px;
 }
 
 .card::after {
@@ -247,7 +257,6 @@
 }
 
 .card.blocked-ace {
-  animation: blocked-ace-float 1.7s ease-in-out infinite;
   box-shadow:
     0 16px 30px rgba(8, 17, 12, 0.24),
     0 0 0 4px rgba(204, 58, 58, 0.1),
@@ -651,30 +660,5 @@
     --card-height: 104px;
     --stack-offset: 29px;
     --card-gap: 10px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card.blocked-ace {
-    animation: none;
-  }
-}
-
-@keyframes blocked-ace-float {
-  0%,
-  100% {
-    transform: translateY(0);
-    box-shadow:
-      0 16px 30px rgba(8, 17, 12, 0.24),
-      0 0 0 4px rgba(204, 58, 58, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  }
-
-  50% {
-    transform: translateY(-5px);
-    box-shadow:
-      0 20px 34px rgba(8, 17, 12, 0.28),
-      0 0 0 6px rgba(204, 58, 58, 0.14),
-      inset 0 1px 0 rgba(255, 255, 255, 0.82);
   }
 }
