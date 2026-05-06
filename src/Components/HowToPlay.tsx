@@ -30,8 +30,8 @@ export default function HowToPlay({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content className="how-to-play-dialog">
-        <Card>
-          <Flex direction="column" gap="3">
+        <Card className="how-to-play-card">
+          <Flex direction="column" gap="3" className="how-to-play-content">
             <Heading size="4">How to play</Heading>
 
             <div className="how-to-play-tabs" role="tablist">

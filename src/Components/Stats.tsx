@@ -99,9 +99,9 @@ export default function Stats({
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="560px">
-        <Card>
-          <Flex direction="column" gap="4">
+      <Dialog.Content maxWidth="560px" className="stats-dialog">
+        <Card className="stats-card">
+          <Flex direction="column" gap="4" className="stats-content">
             <Flex
               align="center"
               justify="between"

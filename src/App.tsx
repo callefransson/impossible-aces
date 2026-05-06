@@ -346,7 +346,7 @@ function formatRoundDuration(seconds: number | null): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-function getVisibleInfo(rows: HandState) {
+function getVisibleInfo(rows: HandState, extraVisibleCards: Card[] = []) {
   const lastRowIndex = Math.max(0, rows.length - 1);
   const visibleMax = new Map<string, number>();
   const visibleFlags = rows.map((row, rowIndex) =>
@@ -369,13 +369,22 @@ function getVisibleInfo(rows: HandState) {
     }
   }
 
+  for (const card of extraVisibleCards) {
+    const value = rankValue(card.rank);
+    const current = visibleMax.get(card.suite);
+    if (current === undefined || value > current) {
+      visibleMax.set(card.suite, value);
+    }
+  }
+
   return { visibleFlags, visibleMax };
 }
 
 function getRemovablePositions(
   rows: HandState,
+  extraVisibleCards: Card[] = [],
 ): Array<{ row: number; col: number }> {
-  const { visibleFlags, visibleMax } = getVisibleInfo(rows);
+  const { visibleFlags, visibleMax } = getVisibleInfo(rows, extraVisibleCards);
   const positions: Array<{ row: number; col: number }> = [];
 
   for (let row = 0; row < rows.length; row++) {
@@ -610,7 +619,7 @@ export default function App() {
       );
 
       return (
-        getRemovablePositions(nextHand).length > 0 ||
+        getRemovablePositions(nextHand, [card]).length > 0 ||
         getMovablePositions(nextHand).length > 0
       );
     }
@@ -1440,6 +1449,7 @@ export default function App() {
               onResetStats={handleResetStats}
               activeDialog={toolbarDialog}
               onActiveDialogChange={setToolbarDialog}
+              onOpenModeDialog={() => setModeDialogOpen(true)}
             />
           </div>
 
@@ -1481,12 +1491,10 @@ export default function App() {
                 >
                   Reset
                 </button>
-              </div>
 
-              <div className="toolbar-right">
                 <button
                   type="button"
-                  className="mode-pill"
+                  className="mode-pill toolbar-mode-pill"
                   onClick={() => setModeDialogOpen(true)}
                 >
                   <span className="status-label">
@@ -1496,14 +1504,8 @@ export default function App() {
                     {GAME_MODE_LABELS[gameMode]}
                   </span>
                 </button>
-
-                <div className="status-pill" aria-label="Cards remaining">
-                  <span className="status-label">
-                    <strong>Cards left</strong>
-                  </span>
-                  <span className="status-value">{totalCardsLeft}</span>
-                </div>
               </div>
+
             </div>
           </header>
 
@@ -1514,6 +1516,11 @@ export default function App() {
               }`}
               style={{ ["--rows" as any]: hand.length }}
             >
+              <div className="table-cards-left" aria-label="Cards remaining">
+                <span>Cards left</span>
+                <strong>{totalCardsLeft}</strong>
+              </div>
+
               {hasReserveMode ? (
                 <div className="reserve-area">
                   <div className="reserve-label">Reserve</div>

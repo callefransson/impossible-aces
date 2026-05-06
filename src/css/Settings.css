@@ -1,9 +1,167 @@
 .settings-section {
   display: flex;
   flex-direction: row;
-  gap: 1rem;
+  gap: 10px;
+  align-items: center;
 }
 
 .settings-btn {
   cursor: pointer !important;
+}
+
+.desktop-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-toggle {
+  display: none !important;
+  width: 42px !important;
+  height: 42px !important;
+  border: 1px solid rgba(255, 240, 199, 0.2) !important;
+  background: rgba(12, 37, 28, 0.78) !important;
+  color: #fff3c7 !important;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.app-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  pointer-events: none;
+  background: rgba(4, 14, 10, 0);
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    background 180ms ease;
+}
+
+.app-menu-backdrop--open {
+  pointer-events: auto;
+  background: rgba(4, 14, 10, 0.42);
+  opacity: 1;
+}
+
+.app-menu-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 2210;
+  width: min(84vw, 340px);
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  padding: calc(18px + env(safe-area-inset-top, 0px))
+    calc(16px + env(safe-area-inset-right, 0px))
+    calc(18px + env(safe-area-inset-bottom, 0px)) 16px;
+  color: #f6fff8;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(18, 57, 43, 0.98), rgba(8, 27, 20, 0.98));
+  border-left: 1px solid rgba(255, 240, 199, 0.16);
+  box-shadow: -22px 0 54px rgba(0, 0, 0, 0.28);
+  transform: translateX(100%);
+  transition: transform 220ms ease;
+}
+
+.app-menu-panel--open {
+  transform: translateX(0);
+}
+
+.app-menu-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 240, 199, 0.14);
+}
+
+.app-menu-title {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.app-menu-subtitle {
+  margin-top: 6px;
+  color: rgba(255, 240, 199, 0.76);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.app-menu-close {
+  color: #f6fff8 !important;
+}
+
+.app-menu-actions {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.app-menu-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 240, 199, 0.14);
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #f6fff8;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 850;
+  text-align: left;
+}
+
+.app-menu-item:active {
+  transform: translateY(1px);
+}
+
+.app-menu-item:focus-visible {
+  outline: 2px solid rgba(255, 240, 199, 0.82);
+  outline-offset: 2px;
+}
+
+.app-menu-item--mode {
+  justify-content: space-between;
+  min-height: 58px;
+}
+
+.app-menu-item--mode strong {
+  color: #fff0ba;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .desktop-toolbar-actions {
+    display: none;
+  }
+
+  .menu-toggle {
+    display: inline-flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-section {
+    gap: 0;
+  }
+
+  .menu-toggle {
+    width: 38px !important;
+    height: 38px !important;
+  }
 }
