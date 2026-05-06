@@ -221,6 +221,12 @@ const removableFlags = (() => {
     }
   }
 
+  if (reserveCard) {
+    const val = rankValue(reserveCard.rank);
+    const cur = visibleMax.get(reserveCard.suite);
+    if (cur === undefined || val > cur) visibleMax.set(reserveCard.suite, val);
+  }
+
   return hand.map((row, rIdx) =>
     row.map((c, colIdx) => {
       if (!c) return false;
@@ -257,6 +263,12 @@ const removeAt = (rowIndex: number, colIndex: number) => {
       const cur = visibleMax.get(c.suite);
       if (cur === undefined || val > cur) visibleMax.set(c.suite, val);
     }
+  }
+
+  if (reserveCard) {
+    const val = rankValue(reserveCard.rank);
+    const cur = visibleMax.get(reserveCard.suite);
+    if (cur === undefined || val > cur) visibleMax.set(reserveCard.suite, val);
   }
 
   const c = hand[rowIndex][colIndex];
