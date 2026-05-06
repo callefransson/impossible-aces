@@ -167,6 +167,7 @@ function GameToolbar({
         onOpenChange={(open) => onActiveDialogChange(open ? "settings" : null)}
         settings={settings}
         onSettingsChange={onSettingsChange}
+        gameMode={gameMode}
       />
     </>
   );
