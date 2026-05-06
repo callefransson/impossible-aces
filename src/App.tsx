@@ -7,7 +7,7 @@ import GameModeDialog, {
 import GameEndModal from "./Components/GameModal";
 import type { GameEndState } from "./Components/GameModal";
 import GameToolbar, { type ToolbarDialog } from "./Components/GameToolbar";
-import type { GameSettings } from "./Components/Settings";
+import type { GameSettings, ReserveUseLimit } from "./Components/Settings";
 import {
   DEFAULT_GAME_STATS,
   DEFAULT_STATS_BY_MODE,
@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   removableCard: true,
   disableDealButton: true,
   cardStyle: "classic",
+  reserveUseLimit: 5,
 };
 const GAME_SETTINGS_KEY = "gameSettings";
 const GAME_STATS_KEY = "gameStats";
@@ -82,6 +83,7 @@ type PersistedRound = {
   version: 1;
   gameMode: GameMode;
   deck: DeckSnapshot;
+  reserveUsesRemaining: number | null;
   roundStartedAt: number | null;
   roundResultRecorded: boolean;
 };
@@ -179,6 +181,12 @@ function getDeviceDefaultSettings(): GameSettings {
   return DEFAULT_SETTINGS;
 }
 
+function normalizeReserveUseLimit(value: unknown): ReserveUseLimit {
+  return value === 3 || value === 5 || value === 8 || value === "unlimited"
+    ? value
+    : DEFAULT_SETTINGS.reserveUseLimit;
+}
+
 function normalizeSettings(
   settings: Partial<GameSettings> | null | undefined,
   fallback = getDeviceDefaultSettings(),
@@ -197,6 +205,7 @@ function normalizeSettings(
       settings?.cardStyle === "largeSymbols"
         ? settings.cardStyle
         : fallback.cardStyle,
+    reserveUseLimit: normalizeReserveUseLimit(settings?.reserveUseLimit),
   };
 }
 
@@ -210,6 +219,16 @@ function loadSettings(): GameSettings {
   } catch {
     return fallback;
   }
+}
+
+function getInitialReserveUses(
+  settings: GameSettings,
+  gameMode: GameMode,
+): number | null {
+  if (gameMode !== "strategicReserve") return null;
+  return settings.reserveUseLimit === "unlimited"
+    ? null
+    : settings.reserveUseLimit;
 }
 
 function isStoredCard(value: unknown): value is Card {
@@ -316,11 +335,27 @@ function loadPersistedRound(): PersistedRound | null {
       Number.isFinite(parsed.roundStartedAt)
         ? parsed.roundStartedAt
         : null;
+    const hasPersistedReserveUses =
+      parsed &&
+      typeof parsed === "object" &&
+      "reserveUsesRemaining" in parsed;
+    const persistedReserveUses =
+      typeof parsed?.reserveUsesRemaining === "number" &&
+      Number.isFinite(parsed.reserveUsesRemaining) &&
+      parsed.reserveUsesRemaining >= 0
+        ? Math.floor(parsed.reserveUsesRemaining)
+        : null;
 
     return {
       version: 1,
       gameMode,
       deck: { hand, reserveCard, removedIds },
+      reserveUsesRemaining:
+        gameMode === "strategicReserve"
+          ? hasPersistedReserveUses
+            ? persistedReserveUses
+            : getInitialReserveUses(loadSettings(), gameMode)
+          : null,
       roundStartedAt,
       roundResultRecorded: parsed?.roundResultRecorded === true,
     };
@@ -533,6 +568,14 @@ export default function App() {
   const [statsByMode, setStatsByMode] = useState<GameStatsByMode>(() =>
     loadStatsByMode(),
   );
+  const [reserveUsesRemaining, setReserveUsesRemaining] = useState<
+    number | null
+  >(
+    () =>
+      persistedRound
+        ? persistedRound.reserveUsesRemaining
+        : getInitialReserveUses(settings, loadGameMode()),
+  );
   const [roundStartedAt, setRoundStartedAt] = useState<number | null>(
     () => persistedRound?.roundStartedAt ?? null,
   );
@@ -567,6 +610,14 @@ export default function App() {
   const hasReserveMode = gameMode === "strategicReserve";
   const hasCompletedAceRow =
     hand[0]?.every((card) => card?.rank === "A") === true;
+  const hasReserveUsesLeft =
+    reserveUsesRemaining === null || reserveUsesRemaining > 0;
+  const reserveUseLimitLabel =
+    settings.reserveUseLimit === "unlimited" ? "∞" : settings.reserveUseLimit;
+  const reserveUsesLabel =
+    reserveUsesRemaining === null
+      ? "∞"
+      : String(Math.max(0, reserveUsesRemaining));
   const currentStats = statsByMode[gameMode] ?? DEFAULT_GAME_STATS;
   const hasMoveState =
     selectedCard !== null ||
@@ -599,6 +650,7 @@ export default function App() {
   const canReserveCard = (row: number, col: number): boolean => {
     if (!hasReserveMode || reserveCard || row === 0) return false;
     if (hasCompletedAceRow) return false;
+    if (!hasReserveUsesLeft) return false;
 
     const card = hand[row]?.[col];
     if (!card) return false;
@@ -686,7 +738,14 @@ export default function App() {
     }
 
     return false;
-  }, [hand, hasBoardMoves, reserveCard, hasReserveMode, totalCardsLeft]);
+  }, [
+    hand,
+    hasBoardMoves,
+    hasReserveMode,
+    hasReserveUsesLeft,
+    reserveCard,
+    totalCardsLeft,
+  ]);
 
   const isLose = useMemo(
     () => totalCardsLeft === 0 && !hasMoves && !isWin,
@@ -756,12 +815,15 @@ export default function App() {
   const handleSettingsChange = (next: GameSettings) => {
     setSettings(next);
     localStorage.setItem(GAME_SETTINGS_KEY, JSON.stringify(next));
+    if (!hasStartedGame) {
+      setReserveUsesRemaining(getInitialReserveUses(next, gameMode));
+    }
   };
 
   const handleGameModeChange = (next: GameMode) => {
     setGameMode(next);
     localStorage.setItem(GAME_MODE_KEY, next);
-    resetBoard();
+    resetBoard(next);
   };
 
   const handleResetStats = () => {
@@ -776,12 +838,13 @@ export default function App() {
     });
   };
 
-  const resetBoard = () => {
+  const resetBoard = (modeForReserveUses = gameMode) => {
     setShowTeaseToast(false);
     setShowImpossibleReason(false);
     clearPersistedRound();
     clearMoveState();
     setRoundStartedAt(null);
+    setReserveUsesRemaining(getInitialReserveUses(settings, modeForReserveUses));
     roundResultRecordedRef.current = false;
     teaseShownRef.current = false;
     reset();
@@ -814,6 +877,7 @@ export default function App() {
     setShowImpossibleReason(false);
     clearMoveState();
     setRoundStartedAt(Date.now());
+    setReserveUsesRemaining(getInitialReserveUses(settings, gameMode));
     roundResultRecordedRef.current = false;
     teaseShownRef.current = false;
     restart();
@@ -824,6 +888,7 @@ export default function App() {
     setShowImpossibleReason(false);
     clearMoveState();
     setRoundStartedAt(Date.now());
+    setReserveUsesRemaining(getInitialReserveUses(settings, gameMode));
     roundResultRecordedRef.current = false;
     teaseShownRef.current = false;
     dealFour();
@@ -917,7 +982,12 @@ export default function App() {
     if (!canReserveCard(fromRow, fromCol)) return { moved: false };
 
     const moved = moveCardToReserve(fromRow, fromCol);
-    if (moved.moved) clearMoveState();
+    if (moved.moved) {
+      setReserveUsesRemaining((current) =>
+        current === null ? null : Math.max(0, current - 1),
+      );
+      clearMoveState();
+    }
     return moved;
   };
 
@@ -1347,6 +1417,7 @@ export default function App() {
         reserveCard,
         removedIds: [...removedIds],
       },
+      reserveUsesRemaining,
       roundStartedAt,
       roundResultRecorded: roundResultRecordedRef.current,
     };
@@ -1359,6 +1430,7 @@ export default function App() {
     hasStartedGame,
     removedIds,
     reserveCard,
+    reserveUsesRemaining,
     roundStartedAt,
   ]);
 
@@ -1523,7 +1595,12 @@ export default function App() {
 
               {hasReserveMode ? (
                 <div className="reserve-area">
-                  <div className="reserve-label">Reserve</div>
+                  <div className="reserve-label">
+                    <span>Reserve</span>
+                    <small>
+                      {reserveUsesLabel}/{reserveUseLimitLabel}
+                    </small>
+                  </div>
                   {reserveCard ? (
                     <Cards
                       suite={reserveCard.suite}
@@ -1549,7 +1626,11 @@ export default function App() {
                         canReserveCard(draggedCard.row, draggedCard.col)
                           ? "reserve-slot--placeable"
                           : ""
-                      } ${hasCompletedAceRow ? "reserve-slot--disabled" : ""}`}
+                      } ${
+                        hasCompletedAceRow || !hasReserveUsesLeft
+                          ? "reserve-slot--disabled"
+                          : ""
+                      }`}
                       data-reserve-slot="true"
                       onDragOver={
                         draggedCard &&
