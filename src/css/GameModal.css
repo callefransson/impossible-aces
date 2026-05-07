@@ -208,14 +208,17 @@
 
 .gem-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-top: 20px;
 }
 
 .gem-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   min-width: 0;
-  padding: 10px 8px;
+  padding: 11px 12px;
   border-radius: 14px;
   background: rgba(23, 70, 54, 0.08);
   box-shadow: inset 0 0 0 1px rgba(23, 70, 54, 0.08);
@@ -245,11 +248,12 @@
 }
 
 .gem-summary-value {
-  margin-top: 4px;
+  margin-top: 0;
   overflow: hidden;
   font-size: 0.95rem;
   font-weight: 900;
   color: #173322;
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -439,21 +443,6 @@
     width: 100%;
   }
 
-  .gem-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .gem-summary-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 11px 12px;
-  }
-
-  .gem-summary-value {
-    margin-top: 0;
-    text-align: right;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

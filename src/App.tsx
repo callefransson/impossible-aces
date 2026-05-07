@@ -336,9 +336,7 @@ function loadPersistedRound(): PersistedRound | null {
         ? parsed.roundStartedAt
         : null;
     const hasPersistedReserveUses =
-      parsed &&
-      typeof parsed === "object" &&
-      "reserveUsesRemaining" in parsed;
+      parsed && typeof parsed === "object" && "reserveUsesRemaining" in parsed;
     const persistedReserveUses =
       typeof parsed?.reserveUsesRemaining === "number" &&
       Number.isFinite(parsed.reserveUsesRemaining) &&
@@ -570,11 +568,10 @@ export default function App() {
   );
   const [reserveUsesRemaining, setReserveUsesRemaining] = useState<
     number | null
-  >(
-    () =>
-      persistedRound
-        ? persistedRound.reserveUsesRemaining
-        : getInitialReserveUses(settings, loadGameMode()),
+  >(() =>
+    persistedRound
+      ? persistedRound.reserveUsesRemaining
+      : getInitialReserveUses(settings, loadGameMode()),
   );
   const [roundStartedAt, setRoundStartedAt] = useState<number | null>(
     () => persistedRound?.roundStartedAt ?? null,
@@ -721,8 +718,7 @@ export default function App() {
     return false;
   }, [hand, flatRemovable, reserveCard]);
 
-  const shouldBlockDealForMoves =
-    settings.disableDealButton && hasBoardMoves;
+  const shouldBlockDealForMoves = settings.disableDealButton && hasBoardMoves;
 
   // Function to check if any moves are possible (removals, board moves, or reserve moves)
   const hasMoves = useMemo(() => {
@@ -844,7 +840,9 @@ export default function App() {
     clearPersistedRound();
     clearMoveState();
     setRoundStartedAt(null);
-    setReserveUsesRemaining(getInitialReserveUses(settings, modeForReserveUses));
+    setReserveUsesRemaining(
+      getInitialReserveUses(settings, modeForReserveUses),
+    );
     roundResultRecordedRef.current = false;
     teaseShownRef.current = false;
     reset();
@@ -1526,11 +1524,15 @@ export default function App() {
           </div>
 
           <header className="app-header">
-            <img
-              src="/impossible-aces-title.png"
-              alt="Impossible Aces"
-              className="app-title"
-            />
+            <h1 id="game-title" className="app-heading">
+              <img
+                src="/impossible-aces-logo-transparent.png"
+                alt=""
+                className="app-title"
+                aria-hidden="true"
+              />
+              <span>Impossible Aces</span>
+            </h1>
 
             <div className="app-toolbar">
               <div className="toolbar-left">
@@ -1577,177 +1579,194 @@ export default function App() {
                   </span>
                 </button>
               </div>
-
             </div>
           </header>
 
-          <main className="table-area">
-            <div
-              className={`cardTableFrame ${
-                hasReserveMode ? "cardTableFrame--with-reserve" : ""
-              }`}
-              style={{ ["--rows" as any]: hand.length }}
+          <main className="app-main">
+            <section
+              className="table-area"
+              aria-label="Impossible Aces game board"
             >
-              <div className="table-cards-left" aria-label="Cards remaining">
-                <span>Cards left</span>
-                <strong>{totalCardsLeft}</strong>
-              </div>
-
-              {hasReserveMode ? (
-                <div className="reserve-area">
-                  <div className="reserve-label">
-                    <span>Reserve</span>
-                    <small>
-                      {reserveUsesLabel}/{reserveUseLimitLabel}
-                    </small>
-                  </div>
-                  {reserveCard ? (
-                    <Cards
-                      suite={reserveCard.suite}
-                      rank={reserveCard.rank}
-                      cardStyle={settings.cardStyle}
-                      isSelected={selectedReserve}
-                      isTouchDragging={touchPreview?.source === "reserve"}
-                      isDraggable={
-                        hand[0]?.some((card) => card === null) ?? false
-                      }
-                      onClick={handleReserveClick}
-                      onDragStart={handleReserveDragStart}
-                      onDragEnd={handleDragEnd}
-                      onTouchStart={handleReserveTouchStart}
-                      onTouchMove={handleReserveTouchMove}
-                      onTouchEnd={handleReserveTouchEnd}
-                      onTouchCancel={handleReserveTouchCancel}
-                    />
-                  ) : (
-                    <div
-                      className={`reserve-slot ${
-                        draggedCard &&
-                        canReserveCard(draggedCard.row, draggedCard.col)
-                          ? "reserve-slot--placeable"
-                          : ""
-                      } ${
-                        hasCompletedAceRow || !hasReserveUsesLeft
-                          ? "reserve-slot--disabled"
-                          : ""
-                      }`}
-                      data-reserve-slot="true"
-                      onDragOver={
-                        draggedCard &&
-                        canReserveCard(draggedCard.row, draggedCard.col)
-                          ? handleDragOver
-                          : undefined
-                      }
-                      onDragLeave={
-                        draggedCard &&
-                        canReserveCard(draggedCard.row, draggedCard.col)
-                          ? handleDragLeave
-                          : undefined
-                      }
-                      onDrop={
-                        draggedCard &&
-                        canReserveCard(draggedCard.row, draggedCard.col)
-                          ? handleReserveDrop
-                          : undefined
-                      }
-                      onClick={
-                        selectedCard &&
-                        canReserveCard(selectedCard.row, selectedCard.col)
-                          ? handleReserveSlotClick
-                          : undefined
-                      }
-                    />
-                  )}
+              <div
+                className={`cardTableFrame ${
+                  hasReserveMode ? "cardTableFrame--with-reserve" : ""
+                }`}
+                style={{ ["--rows" as any]: hand.length }}
+              >
+                <div className="table-cards-left" aria-label="Cards remaining">
+                  <span>Cards left</span>
+                  <strong>{totalCardsLeft}</strong>
                 </div>
-              ) : null}
 
-              <div className="cardGrid">
-                {[0, 1, 2, 3].map((col) => (
-                  <div key={`col-${col}`} className="cardColumn">
-                    {hand.map((rowArr, row) => {
-                      const c = hand[row][col];
+                {hasReserveMode ? (
+                  <div className="reserve-area">
+                    <div className="reserve-label">
+                      <span>Reserve</span>
+                      <small>
+                        {reserveUsesLabel}/{reserveUseLimitLabel}
+                      </small>
+                    </div>
+                    {reserveCard ? (
+                      <Cards
+                        suite={reserveCard.suite}
+                        rank={reserveCard.rank}
+                        cardStyle={settings.cardStyle}
+                        isSelected={selectedReserve}
+                        isTouchDragging={touchPreview?.source === "reserve"}
+                        isDraggable={
+                          hand[0]?.some((card) => card === null) ?? false
+                        }
+                        onClick={handleReserveClick}
+                        onDragStart={handleReserveDragStart}
+                        onDragEnd={handleDragEnd}
+                        onTouchStart={handleReserveTouchStart}
+                        onTouchMove={handleReserveTouchMove}
+                        onTouchEnd={handleReserveTouchEnd}
+                        onTouchCancel={handleReserveTouchCancel}
+                      />
+                    ) : (
+                      <div
+                        className={`reserve-slot ${
+                          draggedCard &&
+                          canReserveCard(draggedCard.row, draggedCard.col)
+                            ? "reserve-slot--placeable"
+                            : ""
+                        } ${
+                          hasCompletedAceRow || !hasReserveUsesLeft
+                            ? "reserve-slot--disabled"
+                            : ""
+                        }`}
+                        data-reserve-slot="true"
+                        onDragOver={
+                          draggedCard &&
+                          canReserveCard(draggedCard.row, draggedCard.col)
+                            ? handleDragOver
+                            : undefined
+                        }
+                        onDragLeave={
+                          draggedCard &&
+                          canReserveCard(draggedCard.row, draggedCard.col)
+                            ? handleDragLeave
+                            : undefined
+                        }
+                        onDrop={
+                          draggedCard &&
+                          canReserveCard(draggedCard.row, draggedCard.col)
+                            ? handleReserveDrop
+                            : undefined
+                        }
+                        onClick={
+                          selectedCard &&
+                          canReserveCard(selectedCard.row, selectedCard.col)
+                            ? handleReserveSlotClick
+                            : undefined
+                        }
+                      />
+                    )}
+                  </div>
+                ) : null}
 
-                      if (!c) {
-                        const isPlaceableSlot =
-                          row === 0 && placeableCols.has(col);
+                <div className="cardGrid">
+                  {[0, 1, 2, 3].map((col) => (
+                    <div key={`col-${col}`} className="cardColumn">
+                      {hand.map((rowArr, row) => {
+                        const c = hand[row][col];
+
+                        if (!c) {
+                          const isPlaceableSlot =
+                            row === 0 && placeableCols.has(col);
+
+                          return (
+                            <div
+                              key={`empty-${row}-${col}`}
+                              className={`cardSlot cardSlot--empty row-${row} ${
+                                isPlaceableSlot
+                                  ? "cardSlot--placeable-slot placeable"
+                                  : ""
+                              }`}
+                              data-drop-row={row}
+                              data-drop-col={col}
+                              onDragOver={
+                                isPlaceableSlot ? handleDragOver : undefined
+                              }
+                              onDragLeave={
+                                isPlaceableSlot ? handleDragLeave : undefined
+                              }
+                              onDrop={
+                                isPlaceableSlot
+                                  ? (e) => handleDrop(row, col, e)
+                                  : undefined
+                              }
+                              onClick={
+                                isPlaceableSlot
+                                  ? () => handleSlotClick(row, col)
+                                  : undefined
+                              }
+                            />
+                          );
+                        }
+
+                        const isDraggable =
+                          canDragCard(row, col) || canReserveCard(row, col);
 
                         return (
                           <div
-                            key={`empty-${row}-${col}`}
-                            className={`cardSlot cardSlot--empty row-${row} ${
-                              isPlaceableSlot
-                                ? "cardSlot--placeable-slot placeable"
-                                : ""
-                            }`}
-                            data-drop-row={row}
-                            data-drop-col={col}
-                            onDragOver={
-                              isPlaceableSlot ? handleDragOver : undefined
-                            }
-                            onDragLeave={
-                              isPlaceableSlot ? handleDragLeave : undefined
-                            }
-                            onDrop={
-                              isPlaceableSlot
-                                ? (e) => handleDrop(row, col, e)
-                                : undefined
-                            }
-                            onClick={
-                              isPlaceableSlot
-                                ? () => handleSlotClick(row, col)
-                                : undefined
-                            }
-                          />
+                            key={`${c.id}-${row}-${col}`}
+                            className={`cardWrapper row-${row}`}
+                          >
+                            <Cards
+                              suite={c.suite}
+                              rank={c.rank}
+                              cardStyle={settings.cardStyle}
+                              isRemovable={
+                                settings.removableCard &&
+                                !!removableFlags[row]?.[col]
+                              }
+                              isBlockedAce={
+                                showImpossibleReason &&
+                                c.rank === "A" &&
+                                row > 0
+                              }
+                              isDraggable={isDraggable}
+                              isSelected={
+                                selectedCard?.row === row &&
+                                selectedCard?.col === col
+                              }
+                              isTouchDragging={
+                                touchPreview?.source === "board" &&
+                                touchPreview.row === row &&
+                                touchPreview?.col === col
+                              }
+                              onClick={() => handleCardClick(row, col)}
+                              onDragStart={(e) => handleDragStart(row, col)}
+                              onDragOver={undefined}
+                              onDragLeave={undefined}
+                              onDrop={undefined}
+                              onDragEnd={handleDragEnd}
+                              onTouchStart={(e) =>
+                                handleTouchStart(row, col, e)
+                              }
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                              onTouchCancel={handleTouchCancel}
+                            />
+                          </div>
                         );
-                      }
-
-                      const isDraggable =
-                        canDragCard(row, col) || canReserveCard(row, col);
-
-                      return (
-                        <div
-                          key={`${c.id}-${row}-${col}`}
-                          className={`cardWrapper row-${row}`}
-                        >
-                          <Cards
-                            suite={c.suite}
-                            rank={c.rank}
-                            cardStyle={settings.cardStyle}
-                            isRemovable={
-                              settings.removableCard &&
-                              !!removableFlags[row]?.[col]
-                            }
-                            isBlockedAce={
-                              showImpossibleReason && c.rank === "A" && row > 0
-                            }
-                            isDraggable={isDraggable}
-                            isSelected={
-                              selectedCard?.row === row &&
-                              selectedCard?.col === col
-                            }
-                            isTouchDragging={
-                              touchPreview?.source === "board" &&
-                              touchPreview.row === row &&
-                              touchPreview?.col === col
-                            }
-                            onClick={() => handleCardClick(row, col)}
-                            onDragStart={(e) => handleDragStart(row, col)}
-                            onDragOver={undefined}
-                            onDragLeave={undefined}
-                            onDrop={undefined}
-                            onDragEnd={handleDragEnd}
-                            onTouchStart={(e) => handleTouchStart(row, col, e)}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
-                            onTouchCancel={handleTouchCancel}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            </section>
+
+            <section className="game-intro" aria-labelledby="game-title">
+              <p>
+                Impossible Aces is a free online browser card game with
+                solitaire-inspired rules, puzzle card game choices, and quick
+                strategy rounds. Clear the board until only the four Aces
+                remain.
+              </p>
+            </section>
           </main>
 
           <GameEndModal

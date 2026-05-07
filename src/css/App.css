@@ -32,11 +32,11 @@
 
 .app-shell {
   position: relative;
-  width: fit-content;
-  max-width: 1040px;
+  width: min(680px, 100%);
+  max-width: 680px;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 30px 28px 34px;
+  padding: 30px 10px 34px;
   border-radius: 32px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 24%),
@@ -120,11 +120,44 @@
   text-align: center;
 }
 
+.app-heading {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0;
+  color: #fff6d4;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
 .app-title {
   display: block;
-  width: min(370px, 80vw);
+  width: min(158px, 38vw);
   height: auto;
-  margin: 0 auto;
+  margin: 16px 0px;
+}
+
+.app-main {
+  display: grid;
+  gap: 14px;
+}
+
+.game-intro {
+  margin: -2px auto 0;
+  text-align: center;
+  color: rgba(255, 246, 212, 0.48);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.game-intro p {
+  margin: 0;
+}
+
+.game-intro p + p {
+  margin-top: 8px;
 }
 
 .app-toolbar {
@@ -155,6 +188,8 @@
 .custom-btn {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.16);
+  box-sizing: border-box;
+  width: 124px;
   min-height: 44px;
   border-radius: 12px;
   padding: 11px 15px;
@@ -288,8 +323,8 @@
   --stack-offset: 38px;
   --frame-bottom: 1px;
   position: relative;
-  padding-left: 16px;
-  padding-right: 16px;
+  padding-left: 8px;
+  padding-right: 8px;
   padding-top: 34px;
   padding-bottom: calc(
     var(--frame-bottom) + (max(var(--rows), 1) - 1) * var(--stack-offset)
@@ -338,6 +373,7 @@
   grid-template-columns: minmax(82px, var(--card-width)) 1fr;
   gap: 18px;
   align-items: start;
+  margin: 0px 10px;
 }
 
 .reserve-area {
@@ -801,27 +837,37 @@
   }
 
   .app-title {
-    width: min(250px, calc(100vw - 92px));
-    margin-bottom: 8px;
+    padding-top: 20px;
+    width: min(112px, calc(100vw - 112px));
+  }
+
+  .app-heading {
+    gap: 3px;
+    font-size: 1.75rem;
+  }
+
+  .game-intro {
+    font-size: 0.74rem;
+    line-height: 1.32;
   }
 
   .app-toolbar {
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 20px;
     margin-bottom: 10px;
   }
 
   .toolbar-left {
-    width: 100%;
     gap: 7px;
   }
 
   .custom-btn {
-    flex: 1 1 0;
+    flex: 0 0 auto;
+    width: 124px;
     min-width: 0;
-    min-height: 42px;
-    padding: 10px 9px;
-    font-size: 12px;
+    min-height: 36px;
+    padding: 10px 8px;
+    font-size: 11px;
   }
 
   .cardTableFrame {
