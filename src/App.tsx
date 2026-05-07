@@ -561,6 +561,7 @@ export default function App() {
   });
   const [showTeaseToast, setShowTeaseToast] = useState(false);
   const [showImpossibleReason, setShowImpossibleReason] = useState(false);
+  const [isFooterExpanded, setIsFooterExpanded] = useState(true);
   const [touchPreview, setTouchPreview] = useState<TouchPreview | null>(null);
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
   const [statsByMode, setStatsByMode] = useState<GameStatsByMode>(() =>
@@ -1759,13 +1760,47 @@ export default function App() {
               </div>
             </section>
 
-            <section className="game-intro" aria-labelledby="game-title">
-              <p>
-                Impossible Aces is a free online browser card game with
-                solitaire-inspired rules, puzzle card game choices, and quick
-                strategy rounds. Clear the board until only the four Aces
-                remain.
-              </p>
+            <section
+              className={`game-footer-panel ${
+                isFooterExpanded ? "game-footer-panel--expanded" : ""
+              }`}
+              aria-labelledby="game-title"
+            >
+              <button
+                type="button"
+                className="game-footer-toggle"
+                aria-expanded={isFooterExpanded ? "true" : "false"}
+                aria-controls="game-footer-content"
+                onClick={() => setIsFooterExpanded((expanded) => !expanded)}
+              >
+                <span>{isFooterExpanded ? "Hide info" : "Show info"}</span>
+              </button>
+
+              {isFooterExpanded ? (
+                <div id="game-footer-content" className="game-footer-content">
+                  <div className="game-intro">
+                    <p>
+                      Impossible Aces is a free online browser card game with
+                      solitaire-inspired rules, puzzle card game choices, and
+                      quick strategy rounds. Clear the board until only the four
+                      Aces remain.
+                    </p>
+                  </div>
+
+                  <div className="app-support">
+                    <a
+                      className="support-link"
+                      href="https://ko-fi.com/impossibleaces"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Support Impossible Aces
+                    </a>
+                  </div>
+
+                  <p className="app-copyright">© 2026 Impossible Aces</p>
+                </div>
+              ) : null}
             </section>
           </main>
 
