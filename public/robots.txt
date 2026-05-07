@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://callefransson.github.io/impossible-aces/sitemap.xml
