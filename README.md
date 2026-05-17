@@ -71,6 +71,16 @@ http://localhost:5173
 npm run build
 ```
 
+### Test Workflow
+
+For the full release and QA checklist, see [TESTING.md](./TESTING.md).
+
+Run the automated project check with:
+
+```bash
+npm run check
+```
+
 ### Preview The Production Build
 
 ```bash
