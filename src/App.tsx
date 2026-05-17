@@ -379,7 +379,7 @@ function formatRoundDuration(seconds: number | null): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-function getVisibleInfo(rows: HandState, extraVisibleCards: Card[] = []) {
+function getVisibleInfo(rows: HandState) {
   const lastRowIndex = Math.max(0, rows.length - 1);
   const visibleMax = new Map<string, number>();
   const visibleFlags = rows.map((row, rowIndex) =>
@@ -402,22 +402,13 @@ function getVisibleInfo(rows: HandState, extraVisibleCards: Card[] = []) {
     }
   }
 
-  for (const card of extraVisibleCards) {
-    const value = rankValue(card.rank);
-    const current = visibleMax.get(card.suite);
-    if (current === undefined || value > current) {
-      visibleMax.set(card.suite, value);
-    }
-  }
-
   return { visibleFlags, visibleMax };
 }
 
 function getRemovablePositions(
   rows: HandState,
-  extraVisibleCards: Card[] = [],
 ): Array<{ row: number; col: number }> {
-  const { visibleFlags, visibleMax } = getVisibleInfo(rows, extraVisibleCards);
+  const { visibleFlags, visibleMax } = getVisibleInfo(rows);
   const positions: Array<{ row: number; col: number }> = [];
 
   for (let row = 0; row < rows.length; row++) {
@@ -669,7 +660,7 @@ export default function App() {
       );
 
       return (
-        getRemovablePositions(nextHand, [card]).length > 0 ||
+        getRemovablePositions(nextHand).length > 0 ||
         getMovablePositions(nextHand).length > 0
       );
     }
