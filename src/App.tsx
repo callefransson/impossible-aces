@@ -11,6 +11,7 @@ import type { GameSettings, ReserveUseLimit } from "./Components/Settings";
 import {
   DEFAULT_GAME_STATS,
   DEFAULT_STATS_BY_MODE,
+  type DailyStreakStats as VisibleDailyStreakStats,
   type GameStats,
   type GameStatsByMode,
 } from "./Components/Stats";
@@ -34,6 +35,7 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 const GAME_SETTINGS_KEY = "gameSettings";
 const GAME_STATS_KEY = "gameStats";
+const DAILY_STREAK_KEY = "dailyWinStreak";
 const GAME_MODE_KEY = "gameMode";
 const CURRENT_ROUND_KEY = "currentRound";
 const FIRST_RUN_TUTORIAL_KEY = "hasSeenFirstRunTutorial";
@@ -91,6 +93,17 @@ type GameEndSummary = {
   label: string;
   value: string | number;
 };
+type DailyStreakStats = {
+  currentStreak: number;
+  bestStreak: number;
+  lastCompletedDate: string | null;
+};
+
+const DEFAULT_DAILY_STREAK: DailyStreakStats = {
+  currentStreak: 0,
+  bestStreak: 0,
+  lastCompletedDate: null,
+};
 
 function trimEmptyBottomRows(rows: HandState): HandState {
   const trimmed = rows.map((row) => row.slice()) as HandState;
@@ -128,6 +141,112 @@ function normalizeStats(
   stats: Partial<GameStats> | null | undefined,
 ): GameStats {
   return { ...DEFAULT_GAME_STATS, ...(stats ?? {}) };
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateToLocalDayIndex(dateString: string): number | null {
+  const parts = dateString.split("-");
+  if (parts.length !== 3) return null;
+
+  const [year, month, day] = parts.map(Number);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return null;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+function getLocalDayDistance(fromDate: string, toDate: string): number | null {
+  const fromIndex = dateToLocalDayIndex(fromDate);
+  const toIndex = dateToLocalDayIndex(toDate);
+  if (fromIndex === null || toIndex === null) return null;
+  return toIndex - fromIndex;
+}
+
+function normalizeDailyStreak(value: unknown): DailyStreakStats {
+  if (!value || typeof value !== "object") return DEFAULT_DAILY_STREAK;
+
+  const streak = value as Partial<DailyStreakStats>;
+  const currentStreak =
+    typeof streak.currentStreak === "number" &&
+    Number.isFinite(streak.currentStreak) &&
+    streak.currentStreak > 0
+      ? Math.floor(streak.currentStreak)
+      : 0;
+  const bestStreak =
+    typeof streak.bestStreak === "number" &&
+    Number.isFinite(streak.bestStreak) &&
+    streak.bestStreak > 0
+      ? Math.floor(streak.bestStreak)
+      : 0;
+  const lastCompletedDate =
+    typeof streak.lastCompletedDate === "string" &&
+    dateToLocalDayIndex(streak.lastCompletedDate) !== null
+      ? streak.lastCompletedDate
+      : null;
+
+  return {
+    currentStreak,
+    bestStreak: Math.max(bestStreak, currentStreak),
+    lastCompletedDate,
+  };
+}
+
+function loadDailyStreak(): DailyStreakStats {
+  const raw = localStorage.getItem(DAILY_STREAK_KEY);
+  if (!raw) return DEFAULT_DAILY_STREAK;
+
+  try {
+    return normalizeDailyStreak(JSON.parse(raw));
+  } catch {
+    return DEFAULT_DAILY_STREAK;
+  }
+}
+
+function getVisibleDailyStreak(streak: DailyStreakStats): number {
+  if (!streak.lastCompletedDate) return 0;
+
+  const today = formatLocalDate(new Date());
+  const distance = getLocalDayDistance(streak.lastCompletedDate, today);
+  return distance === 0 || distance === 1 ? streak.currentStreak : 0;
+}
+
+function applyDailyWin(streak: DailyStreakStats): DailyStreakStats {
+  const today = formatLocalDate(new Date());
+
+  if (streak.lastCompletedDate === today) {
+    return streak;
+  }
+
+  const distance = streak.lastCompletedDate
+    ? getLocalDayDistance(streak.lastCompletedDate, today)
+    : null;
+  const currentStreak = distance === 1 ? streak.currentStreak + 1 : 1;
+
+  return {
+    currentStreak,
+    bestStreak: Math.max(streak.bestStreak, currentStreak),
+    lastCompletedDate: today,
+  };
 }
 
 function loadGameMode(): GameMode {
@@ -558,6 +677,9 @@ export default function App() {
   const [statsByMode, setStatsByMode] = useState<GameStatsByMode>(() =>
     loadStatsByMode(),
   );
+  const [dailyStreak, setDailyStreak] = useState<DailyStreakStats>(() =>
+    loadDailyStreak(),
+  );
   const [reserveUsesRemaining, setReserveUsesRemaining] = useState<
     number | null
   >(() =>
@@ -608,6 +730,11 @@ export default function App() {
       ? "∞"
       : String(Math.max(0, reserveUsesRemaining));
   const currentStats = statsByMode[gameMode] ?? DEFAULT_GAME_STATS;
+  const visibleDailyStreak = getVisibleDailyStreak(dailyStreak);
+  const statsDailyStreak: VisibleDailyStreakStats = {
+    currentStreak: visibleDailyStreak,
+    bestStreak: dailyStreak.bestStreak,
+  };
   const hasMoveState =
     selectedCard !== null ||
     selectedReserve ||
@@ -1471,6 +1598,14 @@ export default function App() {
       return nextByMode;
     });
 
+    if (endState.kind === "win") {
+      setDailyStreak((current) => {
+        const next = applyDailyWin(current);
+        localStorage.setItem(DAILY_STREAK_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+
     roundResultRecordedRef.current = true;
   }, [canInspectImpossible, endState, gameMode, roundStartedAt]);
 
@@ -1502,11 +1637,17 @@ export default function App() {
     <>
       <div className="app">
         <div className="app-shell">
+          <div className="app-streak" aria-label="Daily win streak">
+            <span>Daily streak</span>
+            <strong>{visibleDailyStreak}</strong>
+          </div>
+
           <div className="app-topbar">
             <GameToolbar
               settings={settings}
               onSettingsChange={handleSettingsChange}
               stats={currentStats}
+              dailyStreak={statsDailyStreak}
               gameMode={gameMode}
               onResetStats={handleResetStats}
               activeDialog={toolbarDialog}

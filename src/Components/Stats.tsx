@@ -31,6 +31,11 @@ export type GameStats = {
 
 export type GameStatsByMode = Record<GameMode, GameStats>;
 
+export type DailyStreakStats = {
+  currentStreak: number;
+  bestStreak: number;
+};
+
 export const DEFAULT_GAME_STATS: GameStats = {
   gamesPlayed: 0,
   wins: 0,
@@ -88,12 +93,14 @@ export default function Stats({
   open,
   onOpenChange,
   stats,
+  dailyStreak,
   mode,
   onResetStats,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stats: GameStats;
+  dailyStreak: DailyStreakStats;
   mode: GameMode;
   onResetStats: () => void;
 }) {
@@ -120,7 +127,7 @@ export default function Stats({
                 onClick={onResetStats}
                 className="stats-reset-btn"
               >
-                Reset stats
+                Reset mode stats
               </Button>
             </Flex>
 
@@ -159,6 +166,16 @@ export default function Stats({
                 icon={<StarIcon width="18" height="18" />}
                 label="Best streak"
                 value={stats.bestWinStreak}
+              />
+              <StatTile
+                icon={<StarIcon width="18" height="18" />}
+                label="Current daily streak"
+                value={dailyStreak.currentStreak}
+              />
+              <StatTile
+                icon={<StarIcon width="18" height="18" />}
+                label="Best daily streak"
+                value={dailyStreak.bestStreak}
               />
               <StatTile
                 icon={<CounterClockwiseClockIcon width="18" height="18" />}
