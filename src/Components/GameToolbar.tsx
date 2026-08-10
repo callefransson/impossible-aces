@@ -10,7 +10,7 @@ import "../css/Settings.css";
 import HowToPlay from "./HowToPlay";
 import { GAME_MODE_LABELS, type GameMode } from "./GameModeDialog";
 import Settings, { type GameSettings } from "./Settings";
-import Stats, { type GameStats } from "./Stats";
+import Stats, { type DailyStreakStats, type GameStats } from "./Stats";
 import { useState } from "react";
 
 export type ToolbarDialog = "stats" | "settings" | "howTo" | null;
@@ -19,6 +19,7 @@ function GameToolbar({
   settings,
   onSettingsChange,
   stats,
+  dailyStreak,
   gameMode,
   onResetStats,
   activeDialog,
@@ -28,6 +29,7 @@ function GameToolbar({
   settings: GameSettings;
   onSettingsChange: (next: GameSettings) => void;
   stats: GameStats;
+  dailyStreak: DailyStreakStats;
   gameMode: GameMode;
   onResetStats: () => void;
   activeDialog: ToolbarDialog;
@@ -159,6 +161,7 @@ function GameToolbar({
         open={activeDialog === "stats"}
         onOpenChange={(open) => onActiveDialogChange(open ? "stats" : null)}
         stats={stats}
+        dailyStreak={dailyStreak}
         mode={gameMode}
         onResetStats={onResetStats}
       />

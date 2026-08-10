@@ -1,21 +1,22 @@
 .stats-dialog {
   max-height: min(84vh, 680px);
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .stats-card,
 .stats-content {
-  max-height: inherit;
+  max-height: none;
 }
 
 .stats-card {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .stats-content {
-  overflow-y: auto;
+  overflow: visible;
   overscroll-behavior: contain;
-  padding-right: 2px;
 }
 
 .stats-tile {

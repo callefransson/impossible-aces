@@ -115,6 +115,28 @@
   justify-content: flex-end;
 }
 
+.app-streak {
+  position: absolute;
+  top: 20px;
+  left: 18px;
+  z-index: 3000;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: rgba(255, 245, 216, 0.66);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.app-streak strong {
+  color: #fff0ba;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
 .app-header {
   padding: 0;
   text-align: center;
@@ -830,6 +852,11 @@
   .app-topbar {
     top: 10px;
     right: 10px;
+  }
+
+  .app-streak {
+    top: 16px;
+    left: 14px;
   }
 
   .app-toolbar {
